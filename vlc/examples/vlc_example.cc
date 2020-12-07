@@ -95,6 +95,12 @@ static void CwndTracer(uint32_t oldval, uint32_t newval) {
 }
 
 int main(int argc, char *argv[]) {
+
+    //嘗試使用中文註解:
+    /*
+    中文註解1
+    */
+
 	// Users may find it convenient to turn on explicit debugging
 	// for selected modules; the below lines suggest how to do this
 	//  LogComponentEnable("TcpL4Protocol", LOG_LEVEL_ALL);
