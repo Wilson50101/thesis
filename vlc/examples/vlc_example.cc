@@ -96,9 +96,10 @@ static void CwndTracer(uint32_t oldval, uint32_t newval) {
 
 int main(int argc, char *argv[]) {
 
-    //¹Á¸Õ¨Ï¥Î¤¤¤åµù¸Ñ:
+    //å˜—è©¦ä½¿ç”¨ä¸­æ–‡è¨»è§£:
     /*
-    ¤¤¤åµù¸Ñ1
+    ä¸­æ–‡è¨»è§£1
+    ä¸­æ–‡è¨»è§£2
     */
 
 	// Users may find it convenient to turn on explicit debugging
