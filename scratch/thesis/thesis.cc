@@ -22,400 +22,274 @@
 //       n0-----------------n1-----------------n2
 //
 //
-// - Tracing of queues and packet receptions to file
+// - Tracing of queues and packet receptions to file 
 //   "tcp-large-transfer.tr"
 // - pcap traces also generated in the following files
 //   "tcp-large-transfer-$n-$i.pcap" where n and i represent node and interface
 // numbers respectively
 //  Usage (e.g.): ./waf --run tcp-large-transfer
-#include <ctype.h>
+
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <cassert>
+
 
 #include "ns3/core-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
-//#include "ns3/point-to-point-module.h"
+#include "ns3/point-to-point-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
-#include "ns3/vlc-channel-helper.h"
-#include "ns3/vlc-device-helper.h"
-#include "ns3/netanim-module.h"
+#include "global_environment.h"
+#include "install_mobility.h"
+#include "My_UE_Node.h"
+#include "My_UE_Node_Algo.h"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("VisibleLightCommunication");
-
-void PrintPacketData(Ptr<const Packet> p, uint32_t size);
-
-// The number of bytes to send in this simulation.
-static const uint32_t totalTxBytes = 80000;
-static uint32_t currentTxBytes = 0;
-
-// Perform series of 1040 byte writes (this is a multiple of 26 since
-// we want to detect data splicing in the output stream)
-static const uint32_t writeSize = 2048;
-uint8_t data[writeSize];
-
-// These are for starting the writing process, and handling the sending
-// socket's notification upcalls (events).  These two together more or less
-// implement a sending "Application", although not a proper ns3::Application
-// subclass.
-
-void StartFlow(Ptr<Socket>, Ipv4Address, uint16_t);
-
-void WriteUntilBufferFull(Ptr<Socket>, uint32_t);
-
+NS_LOG_COMPONENT_DEFINE ("TcpLargeTransfer");
 std::vector<double> Received(1, 0);
 std::vector<double> theTime(1, 0);
-//////////////////////////////////////
-//Function to generate signals.
-std::vector<double>& GenerateSignal(int size, double dutyRatio);
 
-static void RxEnd(Ptr<const Packet> p) { // used for tracing and calculating throughput
+std::vector<std::vector<int>> Association_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<int> (UE_Num,0));
 
-	//PrintPacketData(p,p->GetSize());
+std::vector<std::vector<double>> RF_Channel_Gain_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
+std::vector<std::vector<double>> VLC_Channel_Gain_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
 
-	Received.push_back(Received.back() + p->GetSize()); // appends on the received packet to the received data up until that packet and adds that total to the end of the vector
-	theTime.push_back(Simulator::Now().GetSeconds()); // keeps track of the time during simulation that a packet is received
-	//NS_LOG_UNCOND("helooooooooooooooooo RxEnd");
+std::vector<std::vector<double>> DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num,0));
+
+static const uint32_t totalTxBytes = 10000000;
+static uint32_t currentTxBytes = 0;
+static const uint32_t writeSize = 1040;
+uint8_t data[writeSize];
+
+
+
+void StartFlow (Ptr<Socket>, Ipv4Address, uint16_t);
+void WriteUntilBufferFull (Ptr<Socket>, uint32_t);
+
+
+std::string intToString(const int& num){
+	std::stringstream ss;
+	ss << num;
+	return ss.str();
 }
 
-static void TxEnd(Ptr<const Packet> p) { // also used as a trace and for calculating throughput
-
-	Received.push_back(Received.back() + p->GetSize()); // same as for the RxEnd trace
-	theTime.push_back(Simulator::Now().GetSeconds()); 	//
-	//NS_LOG_UNCOND("helooooooooooooooooo TxEnd");
+static void RxEndAddress(Ptr<const Packet> p, const Address &address) { // used for tracing and calculating throughput
+    Received.push_back(Received.back() + p->GetSize()); // appends on the received packet to the received data up until that packet and adds that total to the end of the vector
+    //total+=p->GetSize();
+    theTime.push_back(Simulator::Now().GetSeconds()); // keeps track of the time during simulation that a packet is received
+    double throughput = ((Received.back() * 8)) / theTime.back(); //goodput calculation
+    std::cout << "Received.back() is :" << Received.back() << std::endl;
+    //std::cout << "Sum of p->GetSize() is :" << total << std::endl;
+    std::cout << "Rx throughput value is :" << throughput << std::endl;
+    std::cout << "Current time is :" << theTime.back() << std::endl;
+    std::cout<< "IP: "<<InetSocketAddress::ConvertFrom(address).GetIpv4 ()<<" received size: "<<p->GetSize()<<" at: "<< Simulator::Now().GetSeconds()<<"s"<< std::endl;
 }
 
-static void CwndTracer(uint32_t oldval, uint32_t newval) {
-	NS_LOG_INFO("Moving cwnd from " << oldval << " to " << newval);
+static void 
+CwndTracer (uint32_t oldval, uint32_t newval)
+{
+  NS_LOG_INFO ("Moving cwnd from " << oldval << " to " << newval);
 }
 
-int main(int argc, char *argv[]) {
-	// Users may find it convenient to turn on explicit debugging
-	// for selected modules; the below lines suggest how to do this
-	//  LogComponentEnable("TcpSocketImpl", LOG_LEVEL_ALL);
-	//  LogComponentEnable("PacketSink", LOG_LEVEL_ALL);            // uncomment in original example
-	//  LogComponentEnable("TcpLargeTransfer", LOG_LEVEL_ALL);
-
-	//parameters:
-	double PhotoDetectorArea = (1.3e-5); 	// to set the photo dectror area
-	double Band_factor_Noise_Signal = (10.0);
-
-	CommandLine cmd;
-	cmd.Parse(argc, argv);
-
-	// initialize the tx buffer.
-	for (uint32_t i = 0; i < writeSize; ++i) {
-		char m = toascii(97 + i % 26);
-		data[i] = m;
-	}
-
-	for (double dist = 0.1; dist < 2; dist += 0.1) {
-		//double dist = 2;
-
-		// Here, we will explicitly create three nodes.  The first container contains
-		// nodes 0 and 1 from the diagram above, and the second one contains nodes
-		// 1 and 2.  This reflects the channel connectivity, and will be used to
-		// install the network interfaces and connect them with a channel.
-		NodeContainer n0n1;
-		n0n1.Create(2);
-
-		NodeContainer n1n2;
-		n1n2.Add(n0n1.Get(1));
-		n1n2.Create(1);
-
-		MobilityHelper mobility;
-		Ptr < ListPositionAllocator > m_listPosition = CreateObject<
-				ListPositionAllocator>();
-		m_listPosition->Add(Vector(250.0, 500.0, 0.0));
-		m_listPosition->Add(Vector(500.0, 500.0, 0.0));
-		m_listPosition->Add(Vector(750.0, 500.0, 0.0));
-
-		mobility.SetPositionAllocator(m_listPosition);
-		mobility.SetMobilityModel("ns3::VlcMobilityModel");
-
-		NodeContainer allNodes(n0n1, n1n2);
-		mobility.Install(allNodes);
-
-		VlcDeviceHelper devHelperVPPM; //VLC Device Helper to manage the VLC Device and device properties.
-
-		//Creating and setting properties for the first transmitter.
-		devHelperVPPM.CreateTransmitter("THE_TRANSMITTER1");
-		/****************************************TX-SIGNAL************************************
-		 * 1000-SIGNAL SIZE, 0.5-DUTY RATIO, 0-BIAS, 9.25E-5-PEAK VOLTAGE, 0-MINIMUM VOLTAGE
-		 ************************************************************************************/
-		devHelperVPPM.SetTXSignal("THE_TRANSMITTER1", 1000, 0.5, 0, 9.25e-5, 0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "Bias", 0);//SETTING BIAS VOLTAGE MOVES THE SIGNAL VALUES BY THE AMOUNT OF BIASING
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "SemiAngle", 35);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "Azimuth", 0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "Elevation",180.0);
-		devHelperVPPM.SetTrasmitterPosition("THE_TRANSMITTER1", 0.0, 0.0, 52.0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "Gain", 70);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER1", "DataRateInMBPS",0.3);
-
-		//Creating and setting properties for the second transmitter.
-		devHelperVPPM.CreateTransmitter("THE_TRANSMITTER2");
-		/****************************************TX-SIGNAL************************************
-		* 1000-SIGNAL SIZE, 0.5-DUTY RATIO, 0-BIAS, 9.25E-5-PEAK VOLTAGE, 0-MINIMUM VOLTAGE
-		************************************************************************************/
-		devHelperVPPM.SetTXSignal("THE_TRANSMITTER2", 1000, 0.5, 0, 9.25e-5, 0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "Bias", 0);//SETTING BIAS VOLTAGE MOVES THE SIGNAL VALUES BY THE AMOUNT OF BIASING
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "SemiAngle", 35);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "Azimuth", 0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "Elevation",180.0);
-		devHelperVPPM.SetTrasmitterPosition("THE_TRANSMITTER2", 0.0, 0.0, 52.0);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "Gain", 70);
-		devHelperVPPM.SetTrasmitterParameter("THE_TRANSMITTER2", "DataRateInMBPS",0.3);
-
-
-		//Creating and setting properties for the first receiver.
-		devHelperVPPM.CreateReceiver("THE_RECEIVER1");
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "FilterGain", 1);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "RefractiveIndex", 1.5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "FOVAngle", 28.5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "ConcentrationGain", 0);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "PhotoDetectorArea",1.3e-5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "RXGain", 0);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "PhotoDetectorArea",PhotoDetectorArea);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "Beta", 1);
-		/****************************************MODULATION SCHEME SETTINGS******************
-		*AVILABLE MODULATION SCHEMES ARE: [1]. VlcErrorModel::PAM4, [2]. VlcErrorModel::OOK [3]. VlcErrorModel::VPPM
-		*AVILABLE MODULATION SCHEMES [4]. VlcErrorModel::PSK4 [5]. VlcErrorModel::PSK16. [6]. VlcErrorModel::QAM4 [7]. VlcErrorModel::QAM16.
-		************************************************************************************/
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "SetModulationScheme",VlcErrorModel::PSK4);
-		//devHelperVPPM.SetReceiverParameter("THE_RECEIVER1", "DutyCycle", 0.85); //Dutycycle is only valid for VPPM
-
-		//Creating and setting properties for the second receiver.
-		devHelperVPPM.CreateReceiver("THE_RECEIVER2");
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "FilterGain", 1);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "RefractiveIndex", 1.5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "FOVAngle", 28.5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "ConcentrationGain", 0);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "PhotoDetectorArea",1.3e-5);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "RXGain", 0);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "PhotoDetectorArea",PhotoDetectorArea);
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "Beta", 1);
-		/****************************************MODULATION SCHEME SETTINGS******************
-		*AVILABLE MODULATION SCHEMES ARE: [1]. VlcErrorModel::VPPM, [2]. VlcErrorModel::OOK [3]. VlcErrorModel::PAM
-		*AVILABLE MODULATION SCHEMES [4]. VlcErrorModel::PSK4 [5]. VlcErrorModel::PSK16. [6]. VlcErrorModel::QAM4 [7]. VlcErrorModel::QAM16.
-		*************************************************************************************/
-		devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "SetModulationScheme",VlcErrorModel::PSK4);
-		//devHelperVPPM.SetReceiverParameter("THE_RECEIVER2", "DutyCycle", 0.85);//Dutycycle is only valid for VPPM
-
-		VlcChannelHelper chHelper;
-		chHelper.CreateChannel("THE_CHANNEL1");
-		chHelper.SetPropagationLoss("THE_CHANNEL1", "VlcPropagationLoss");
-		chHelper.SetPropagationDelay("THE_CHANNEL1", 2);
-		chHelper.AttachTransmitter("THE_CHANNEL1", "THE_TRANSMITTER1",&devHelperVPPM);
-		chHelper.AttachReceiver("THE_CHANNEL1", "THE_RECEIVER1", &devHelperVPPM);
-		chHelper.SetChannelParameter("THE_CHANNEL1", "TEMP", 295);
-		chHelper.SetChannelParameter("THE_CHANNEL1", "BAND_FACTOR_NOISE_SIGNAL",Band_factor_Noise_Signal );
-		chHelper.SetChannelWavelength("THE_CHANNEL1", 380, 780);
-		chHelper.SetChannelParameter("THE_CHANNEL1", "ElectricNoiseBandWidth",3 * 1e5);
-
-		chHelper.CreateChannel("THE_CHANNEL2");
-		chHelper.SetPropagationLoss("THE_CHANNEL2", "VlcPropagationLoss");
-		chHelper.SetPropagationDelay("THE_CHANNEL2", 2);
-		chHelper.AttachTransmitter("THE_CHANNEL2", "THE_TRANSMITTER2",&devHelperVPPM);
-		chHelper.AttachReceiver("THE_CHANNEL2", "THE_RECEIVER2", &devHelperVPPM);
-		chHelper.SetChannelParameter("THE_CHANNEL2", "TEMP", 295);
-		chHelper.SetChannelParameter("THE_CHANNEL2", "BAND_FACTOR_NOISE_SIGNAL",Band_factor_Noise_Signal);
-		chHelper.SetChannelWavelength("THE_CHANNEL2", 380, 780);
-		chHelper.SetChannelParameter("THE_CHANNEL2", "ElectricNoiseBandWidth",3 * 1e5);
-
-		// And then install devices and channels connecting our topology.
-		NetDeviceContainer dev0 = chHelper.Install(n0n1.Get(0), n0n1.Get(1),
-				&devHelperVPPM, &chHelper, "THE_TRANSMITTER1", "THE_RECEIVER1",
-				"THE_CHANNEL1");
-
-		NetDeviceContainer dev1 = chHelper.Install(n1n2.Get(0), n1n2.Get(1),
-				&devHelperVPPM, &chHelper, "THE_TRANSMITTER2", "THE_RECEIVER2",
-				"THE_CHANNEL2");
-
-		// Now add ip/tcp stack to all nodes.
-		InternetStackHelper internet;
-		internet.InstallAll();
-
-		// Later, we add IP addresses.
-		Ipv4AddressHelper ipv4;
-		ipv4.SetBase("10.1.3.0", "255.255.255.0");
-		ipv4.Assign(dev0);
-		ipv4.SetBase("10.1.2.0", "255.255.255.0");
-		Ipv4InterfaceContainer ipInterfs = ipv4.Assign(dev1);
-
-		// and setup ip routing tables to get total ip-level connectivity.
- 		Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-
-		///////////////////////////////////////////////////////////////////////////
-		// Simulation 1
-		//
-		// Send 2000000 bytes over a connection to server port 50000 at time 0
-		// Should observe SYN exchange, a lot of data segments and ACKS, and FIN
-		// exchange.  FIN exchange isn't quite compliant with TCP spec (see release
-		// notes for more info)
-		//
-		///////////////////////////////////////////////////////////////////////////
-		uint16_t servPort = 4000;
-		// Create a packet sink to receive these packets on n2...
-		PacketSinkHelper sink("ns3::TcpSocketFactory",
-				InetSocketAddress(Ipv4Address::GetAny(), servPort));
-
-		ApplicationContainer apps = sink.Install(n1n2.Get(1));
-
-		devHelperVPPM.SetTrasmitterPosition("THE_TRANSMITTER1", 0.0, 0.0, 0.0);
-		devHelperVPPM.SetTrasmitterPosition("THE_TRANSMITTER2", 0.0, 0.0, 0.0);
-
-		devHelperVPPM.SetReceiverPosition("THE_RECEIVER1", 0.0, 0.0, dist);
-		devHelperVPPM.SetReceiverPosition("THE_RECEIVER2", 0.0, 0.0, dist);
-
-		apps.Start(Seconds(0.0));
-		apps.Stop(Seconds(4.0));
-		// Create a source to send packets from n0.  Instead of a full Application
-		// and the helper APIs you might see in other example files, this example
-		// will use sockets directly and register some socket callbacks as a sending
-		// "Application".
-		// Create and bind the socket...
-		Ptr < Socket > localSocket = Socket::CreateSocket(n0n1.Get(0),
-				TcpSocketFactory::GetTypeId());
-		localSocket->Bind();
-
-		// Trace changes to the congestion window
-		Config::ConnectWithoutContext(
-				"/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow",
-				MakeCallback(&CwndTracer));
-		dev1.Get(1)->TraceConnectWithoutContext("PhyRxEnd", MakeCallback(&RxEnd)); //traces to allow us to see what and when data is sent through the network
-		dev0.Get(0)->TraceConnectWithoutContext("PhyTxEnd", MakeCallback(&TxEnd)); //traces to allow us to see what and when data is received through the network
-
-		// ...and schedule the sending "Application"; This is similar to what an
-		// ns3::Application subclass would do internally.
-		Simulator::ScheduleNow(&StartFlow, localSocket, ipInterfs.GetAddress(1),
-				servPort);
-
-		// One can toggle the comment for the following line on or off to see the
-		// effects of finite send buffer modelling.  One can also change the size of
-		// said buffer.
-		//localSocket->SetAttribute("SndBufSize", UintegerValue(4096));
-
-		//Ask for ASCII and pcap traces of network traffic
-		AsciiTraceHelper ascii;
-
-		 chHelper.EnableAsciiAll (ascii.CreateFileStream ("../output/tcp-large-transfer.tr"));
-		 chHelper.EnablePcapAll ("../output/tcp-large-transfer"); // call VlcChannelHelper::EnablePcapAll
-
-		// Finally, set up the simulator to run.  The 1000 second hard limit is a
-		// failsafe in case some change above causes the simulation to never end
-		AnimationInterface anim("visible-light-communication.xml");
-
-		Simulator::Stop(Seconds(5.0));
-		Simulator::Run();
-
-                //std::cout << "Received size = " << Received.size() << ", theTime size = " << theTime.size() << std::endl;
-                std::cout << "dist = " << dist << std::endl;
-		double throughput = ((Received.back() * 8)) / theTime.back(); //goodput calculation
-		std::cout << "throughput value is" << throughput << std::endl;
-
-		Ptr < VlcRxNetDevice > rxHandle = devHelperVPPM.GetReceiver(
-				"THE_RECEIVER1");
-		double goodput = rxHandle->ComputeGoodPut();
-	       std::cout<< "Good Packet Received Size is  "<< goodput<< std::endl;
-		goodput *= 8;
-		goodput /= theTime.back();
-		goodput /= 1024;
-		std::cout << "Simulation time is "<< theTime.back()<<std::endl;
-		std::cout << "goodput value is " << goodput << std::endl;
-		//std::cout << chHelper.GetChannelSNR("THE_CHANNEL2") << "\t" << std::endl;
-
-		//NS_LOG_UNCOND(throughput);
-
-		//std::cout<<throughput<<std::endl;
-
-		Received.clear(); Received.push_back(0);
-                theTime.clear(); theTime.push_back(0);
-
-		Simulator::Destroy();
-		currentTxBytes = 0;
-
-	}
+void change_dev_rate(NetDeviceContainer & channel){
+  DynamicCast<PointToPointNetDevice>(channel.Get(0))->SetDataRate(DataRate("500Mbps"));
+  DynamicCast<PointToPointNetDevice>(channel.Get(1))->SetDataRate(DataRate("500Mbps"));
 }
+
+int main (int argc, char *argv[])
+{
+  // Users may find it convenient to turn on explicit debugging
+  // for selected modules; the below lines suggest how to do this
+  //  LogComponentEnable("TcpL4Protocol", LOG_LEVEL_ALL);
+  //  LogComponentEnable("TcpSocketImpl", LOG_LEVEL_ALL);
+  //  LogComponentEnable("PacketSink", LOG_LEVEL_ALL);
+  //  LogComponentEnable("TcpLargeTransfer", LOG_LEVEL_ALL);
+
+  CommandLine cmd;
+  cmd.Parse (argc, argv);
+
+  Config::SetDefault("ns3::TcpSocket::SegmentSize",UintegerValue(1000));
+  Config::SetDefault("ns3::TcpSocket::SndBufSize",UintegerValue(1000000000));
+  Config::SetDefault("ns3::TcpSocket::RcvBufSize",UintegerValue(1000000000));
+
+  // initialize the tx buffer.
+  for(uint32_t i = 0; i < writeSize; ++i)
+    {
+      char m = toascii (97 + i % 26);
+      data[i] = m;
+    }
+
+  /** Create RF AP Node **/
+  NodeContainer RF_AP_Nodes;
+  
+  RF_AP_Nodes.Create (RF_AP_Num);
+  
+  install_RF_AP_mobility(RF_AP_Nodes);
+  
+  #if DEBUG_MODE
+    print_RF_AP_position(RF_AP_Nodes);    //for debug use
+  #endif
+  
+  /** Create VLC AP Nodes **/
+  NodeContainer VLC_AP_Nodes;
+  
+  VLC_AP_Nodes.Create (VLC_AP_Num);
+  
+  install_VLC_AP_mobility(VLC_AP_Nodes);
+  
+  #if DEBUG_MODE
+    print_VLC_AP_position(VLC_AP_Nodes);  //for debug use
+  #endif
+  
+  
+  /** Create UE Nodes **/
+  NodeContainer UE_Nodes;
+  
+  UE_Nodes.Create (UE_Num);
+  
+  install_UE_mobility(UE_Nodes);
+  
+  #if DEBUG_MODE
+    print_UE_position(UE_Nodes);          //for debug use
+  #endif
+
+  std::vector<My_UE_Node> myUElist = Initialize_My_UE_Node_list(UE_Nodes);
+  
+  
+ 
+
+  /** add ip/tcp stack to all nodes.**/
+  InternetStackHelper internet;
+  internet.InstallAll ();
+  
+
+ 
+
+  /** set p2p helper **/
+  PointToPointHelper p2p;
+  p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+  p2p.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (0.1)));
+
+  
+  
+  /*
+    Channel[i][j] 放的是 AP i - UE j的link
+    該link用Netdevicecontainer表達
+    Netdevicecontainer.Get(0) = transmitter device
+    Netdevicecontainer.Get(1) = receiver device
+  */
+  
+  std::vector<std::vector<NetDeviceContainer>> VLC_Channel(VLC_AP_Num,std::vector<NetDeviceContainer> (UE_Num));  
+  for(int i=0;i<VLC_AP_Num;i++){
+    for(int j=0;j<UE_Num;j++){
+      VLC_Channel[i][j]=p2p.Install(VLC_AP_Nodes.Get(i),UE_Nodes.Get(j));
+    }
+  }
+   
+  /** Later, we add IP addresses. **/
+  std::vector<Ipv4InterfaceContainer> ipvec;
+  Ipv4AddressHelper ipv4;
+  for(int i=0;i<VLC_AP_Num;i++){
+    for(int j=0;j<UE_Num;j++){
+      std::string addressStr = "10."+intToString(i+1) +"." + intToString(j+1) + ".0";
+      ipv4.SetBase(addressStr.c_str(),"255.255.255.0");
+      ipvec.push_back(ipv4.Assign (VLC_Channel[i][j]));
+      
+      #if DEBUG_MODE
+        std::cout<<ipvec.back().GetAddress(1)<<" ";
+      #endif
+    }
+    #if DEBUG_MODE
+      std::cout << std::endl;
+    #endif
+  }
+
+
+  
+  //set serve Port
+  uint16_t servPort = 50000;
+
+  // Create a packet sink to receive these packets on n2...
+  PacketSinkHelper sink ("ns3::TcpSocketFactory",
+                         InetSocketAddress (Ipv4Address::GetAny (), servPort));
+
+  ApplicationContainer apps ;
+  apps.Add(sink.Install(UE_Nodes));
+  apps.Start (Seconds (0.0));
+  //apps.Stop (Seconds (6.0));
+
+
+
+  // Create and bind the socket...
+  std::vector<std::vector<Ptr<Socket>>> localSockets(VLC_AP_Num,std::vector<Ptr<Socket> > (UE_Num));
+  for(int i=0;i<VLC_AP_Num;i++){
+    for(int j=0;j<UE_Num;j++){
+      localSockets[i][j] = Socket::CreateSocket (VLC_AP_Nodes.Get (i), TcpSocketFactory::GetTypeId ()); 
+      localSockets[i][j]->Bind();
+    }
+  }  
+  // Trace changes to the congestion window
+  Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
+
+  ApplicationContainer::Iterator i;
+  for (i = apps.Begin (); i != apps.End (); ++i){
+          (*i)->TraceConnectWithoutContext("Rx", MakeCallback(&RxEndAddress));
+  }
+  // ...and schedule the sending "Application"; This is similar to what an 
+  // ns3::Application subclass would do internally.
+
+  int ipvec_index=0;
+  for(int i=0;i<VLC_AP_Num;i++){
+    for(int j=0;j<UE_Num;j++){
+      Simulator::Schedule(Seconds(0.0),&StartFlow,localSockets[i][j],ipvec[ipvec_index++].GetAddress(1), servPort);
+    }
+  }
+  Simulator::Schedule(Seconds(4.0),&change_dev_rate,VLC_Channel[0][0]);
+  
+  
+  Simulator::Stop (Seconds (6));
+  Simulator::Run ();
+  Simulator::Destroy ();
+}
+
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //begin implementation of sending "Application"
-void StartFlow(Ptr<Socket> localSocket, Ipv4Address servAddress,
-		uint16_t servPort) {
-	//NS_LOG_UNCOND("helooooooooooooooooo StartFlow");
-	localSocket->Connect(InetSocketAddress(servAddress, servPort)); //connect
+void StartFlow (Ptr<Socket> localSocket,
+                Ipv4Address servAddress,
+                uint16_t servPort)
+{
+  NS_LOG_LOGIC ("Starting flow at time " <<  Simulator::Now ().GetSeconds ());
+  localSocket->Connect (InetSocketAddress (servAddress, servPort)); //connect
 
-	// tell the tcp implementation to call WriteUntilBufferFull again
-	// if we blocked and new tx buffer space becomes available
-	localSocket->SetSendCallback(MakeCallback(&WriteUntilBufferFull));
-	WriteUntilBufferFull(localSocket, localSocket->GetTxAvailable());
+  // tell the tcp implementation to call WriteUntilBufferFull again
+  // if we blocked and new tx buffer space becomes available
+  //localSocket->SetSendCallback (MakeCallback (&WriteUntilBufferFull));
+  WriteUntilBufferFull (localSocket, localSocket->GetTxAvailable ());
+  currentTxBytes=0;
 }
 
-void WriteUntilBufferFull(Ptr<Socket> localSocket, uint32_t txSpace) {
-	//NS_LOG_UNCOND("helooooooooooooooooo WriteUntilBufferFull");
-	while (currentTxBytes < totalTxBytes && localSocket->GetTxAvailable() > 0) {
-
-		uint32_t left = totalTxBytes - currentTxBytes;
-		uint32_t dataOffset = currentTxBytes % writeSize;
-		uint32_t toWrite = writeSize - dataOffset;
-		toWrite = std::min (toWrite, left);
-		toWrite = std::min (toWrite, localSocket->GetTxAvailable ());
-
-		Ptr<Packet> p = Create<Packet>(&data[dataOffset], toWrite);
-		Ptr<Node> startingNode = localSocket->GetNode();
-		Ptr<VlcTxNetDevice> txOne = DynamicCast<VlcTxNetDevice>(startingNode->GetDevice(0) );
-		txOne->EnqueueDataPacket(p);
-
-		int amountSent = localSocket->Send (&data[dataOffset], toWrite, 0);
-		if(amountSent < 0)
-		{
-			// we will be called again when new tx space becomes available.
-			return;
-		}
-
-		currentTxBytes += amountSent;
-	}
-
-	localSocket->Close();
-}
-/*
-std::vector<double>& GenerateSignal(int size, double dutyRatio) {
-	std::vector<double> *result = new std::vector<double>();
-	result->reserve(size);
-
-	double bias = 0;
-	double Vmax = 4.5;
-	double Vmin = 0.5;
-
-	for (int i = 0; i < size; i++) {
-		if (i < size * dutyRatio) {
-			result->push_back(Vmax + bias);
-		} else {
-			result->push_back(Vmin + bias);
-		}
-	}
-
-	return *result;
+void WriteUntilBufferFull (Ptr<Socket> localSocket, uint32_t txSpace)
+{
+  while (currentTxBytes < totalTxBytes && localSocket->GetTxAvailable () > 0) 
+    {
+      uint32_t left = totalTxBytes - currentTxBytes;
+      uint32_t dataOffset = currentTxBytes % writeSize;
+      uint32_t toWrite = writeSize - dataOffset;
+      toWrite = std::min (toWrite, left);
+      toWrite = std::min (toWrite, localSocket->GetTxAvailable ());
+      int amountSent = localSocket->Send (&data[dataOffset], toWrite, 0);
+      if(amountSent < 0)
+        {
+          // we will be called again when new tx space becomes available.
+          return;
+        }
+      currentTxBytes += amountSent;
+    }
+  localSocket->Close ();
 }
 
-void PrintPacketData(Ptr<const Packet> p, uint32_t size) {
-	uint8_t *data = new uint8_t[size];
-
-	p->CopyData(data, size);
-
-	for (uint32_t i = 0; i < size; i++) {
-		std::cout << (int) data[i] << " ";
-	}
-
-	std::cout << std::endl;
-
-	delete[] data;
-
-}
-*/
