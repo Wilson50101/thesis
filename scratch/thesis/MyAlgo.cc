@@ -52,21 +52,17 @@ void Calculate_VLC_SINR_Matrix(std::vector<std::vector<double>> & VLC_Channel_Ga
 
 //計算某個 pair(RF_AP,UE)的SINR
 //Note : 實際上paper只有一個RF_AP，所以等同SNR
-//但是爲了怕以後老師會多加RF_AP數量，先寫成SINR的公式，以便以後不太需要多修改
+
 double Estimate_one_RF_SINR(std::vector<std::vector<double>>  & RF_Channel_Gain_Matrix , int RF_AP_Index , int UE_Index){
   
-  //先把其他AP和該UE的channel gain納入幹擾項
+  //只有一個RF_AP，所以interference = 0
   double interference = 0;
-  for(int i = 0 ; i < RF_AP_Num ; i++ ){
-      if(i!=RF_AP_Index)
-        interference +=  RF_Channel_Gain_Matrix[i][UE_Index];
-  }
 
   //再計算出noise項
   double noise = RF_AP_Bandwidth * Nr ;
 
   //再計算出SINR項
-  double SINR = RF_Channel_Gain_Matrix[RF_AP_Index][UE_Index] / (noise + interference);
+  double SINR = pow(RF_Channel_Gain_Matrix[RF_AP_Index][UE_Index],2) * RF_AP_Power / (noise + interference);
 
   return SINR;
 
@@ -79,14 +75,14 @@ double Estimate_one_VLC_SINR(std::vector<std::vector<double>> & VLC_Channel_Gain
   double interference = 0;
   for(int i = 0 ; i < VLC_AP_Num ; i++ ){
       if(i!=VLC_AP_Index)
-        interference +=  VLC_Channel_Gain_Matrix[i][UE_Index];
+        interference +=  pow(kappa * VLC_AP_Popt * VLC_Channel_Gain_Matrix[i][UE_Index],2);
   }
 
   //再計算出noise項
   double noise = VLC_AP_Bandwidth * Nl ;
 
   //再計算出SINR項
-  double SINR = VLC_Channel_Gain_Matrix[VLC_AP_Index][UE_Index] / (noise + interference);
+  double SINR = pow(kappa * VLC_AP_Popt * VLC_Channel_Gain_Matrix[VLC_AP_Index][UE_Index],2)/ (noise + interference);
 
   return SINR;
 }

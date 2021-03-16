@@ -46,16 +46,17 @@ const double Nr = 1e-15;
 // - height 3.5m                                
 const double VLC_AP_height = 3.5;               
 
-// - power 20W
-const int VLC_AP_Power = 20;
+// - average trasmitted optical power per VLC AP : 9W
+const int VLC_AP_Popt = 9;
 
 // - VLC bandwidth = 40Mhz
 const int VLC_AP_Bandwidth = 40;
 
-// - AWGN power spectral density Nl    10^-21 A2/Hz = 10^-15 A2/MHz
+// - power spectral density Nl    10^-21 A2/Hz = 10^-15 A2/MHz
 const double  Nl = 1e-15;
 
-
+// - Optical to electric conversion efficiency, kappa = 0.53 A/W
+const double kappa = 0.53 ;
 
 ////////////////////////////////////////////////////////
 /////////          Each UE                      ////////
