@@ -1,6 +1,6 @@
 #ifndef GLOBAL_ENVIROMENT_H
 #define GLOBAL_ENVIROMENT_H
-#define DEBUG_MODE 1
+#define DEBUG_MODE 1            //控制是否要印出debug message
 #define PI 3.14
 ////////////////////////////////////////////////////////
 /////////        ENVIRONMENT CONSTANTS          ////////
@@ -19,7 +19,7 @@ const int VLC_AP_Num = 16;
 const int VLC_AP_per_row = 4;
 
 // - UE number : 10-70 step 10                   
-const int UE_Num = 10;
+const int UE_Num = 40;
 
 
 
@@ -30,11 +30,14 @@ const int UE_Num = 10;
 // - height 3.5m                                
 const double RF_AP_height = 3.5;               
 
-// - power 20W  待定
-const int RF_AP_Power = 20;
+// - power 1w
+const int RF_AP_Power = 1;
 
 // - RF bandwidth = 20Mhz
 const int RF_AP_Bandwidth = 20;
+
+// - AWGN power spectral density Nr    10^-21 A2/Hz = 10^-15 A2/MHz
+const double Nr = 1e-15;
 
 ////////////////////////////////////////////////////////
 /////////          Each VLC AP                  ////////
@@ -49,7 +52,8 @@ const int VLC_AP_Power = 20;
 // - VLC bandwidth = 40Mhz
 const int VLC_AP_Bandwidth = 40;
 
-
+// - AWGN power spectral density Nl    10^-21 A2/Hz = 10^-15 A2/MHz
+const double  Nl = 1e-15;
 
 
 
@@ -87,5 +91,9 @@ const double VLC_receiver_area = 0.0001;
 
 // reflection efficiency (rho)                0.75
 const double VLC_reflect_efficiency = 0.75;
+
+
+
+
 
 #endif

@@ -43,7 +43,8 @@
 #include "global_environment.h"
 #include "install_mobility.h"
 #include "My_UE_Node.h"
-#include "My_UE_Node_Algo.h"
+#include "MyAlgo.h"
+#include "Channel.h"
 
 using namespace ns3;
 
@@ -53,10 +54,15 @@ std::vector<double> theTime(1, 0);
 
 std::vector<std::vector<int>> Association_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<int> (UE_Num,0));
 
-std::vector<std::vector<double>> RF_Channel_Gain_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
+std::vector<std::vector<double>> RF_Channel_Gain_Matrix(RF_AP_Num,std::vector<double> (UE_Num,0));
 std::vector<std::vector<double>> VLC_Channel_Gain_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
 
-std::vector<std::vector<double>> DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num,0));
+std::vector<std::vector<double>> RF_SINR_Matrix(RF_AP_Num,std::vector<double> (UE_Num,0));
+std::vector<std::vector<double>> VLC_SINR_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
+
+std::vector<std::vector<double>> RF_DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num,0));
+std::vector<std::vector<double>> VLC_DataRate_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
+
 
 static const uint32_t totalTxBytes = 10000000;
 static uint32_t currentTxBytes = 0;
@@ -67,7 +73,6 @@ uint8_t data[writeSize];
 
 void StartFlow (Ptr<Socket>, Ipv4Address, uint16_t);
 void WriteUntilBufferFull (Ptr<Socket>, uint32_t);
-
 
 std::string intToString(const int& num){
 	std::stringstream ss;
@@ -85,12 +90,6 @@ static void RxEndAddress(Ptr<const Packet> p, const Address &address) { // used 
     std::cout << "Rx throughput value is :" << throughput << std::endl;
     std::cout << "Current time is :" << theTime.back() << std::endl;
     std::cout<< "IP: "<<InetSocketAddress::ConvertFrom(address).GetIpv4 ()<<" received size: "<<p->GetSize()<<" at: "<< Simulator::Now().GetSeconds()<<"s"<< std::endl;
-}
-
-static void 
-CwndTracer (uint32_t oldval, uint32_t newval)
-{
-  NS_LOG_INFO ("Moving cwnd from " << oldval << " to " << newval);
 }
 
 void change_dev_rate(NetDeviceContainer & channel){
@@ -157,8 +156,34 @@ int main (int argc, char *argv[])
 
   std::vector<My_UE_Node> myUElist = Initialize_My_UE_Node_list(UE_Nodes);
   
+
+  //算RF/VLC的Channel gain
+  Calculate_RF_Channel_Gain_Matrix(RF_AP_Nodes,UE_Nodes,RF_Channel_Gain_Matrix);
+  Calculate_VLC_Channel_Gain_Matrix(VLC_AP_Nodes,UE_Nodes,VLC_Channel_Gain_Matrix);
   
- 
+  #if DEBUG_MODE
+    print_RF_Channel_Gain_Matrix(RF_Channel_Gain_Matrix);
+    print_VLC_Channel_Gain_Matrix(VLC_Channel_Gain_Matrix);
+  #endif
+  
+
+  //算RF/VLC的SINR
+  Calculate_RF_SINR_Matrix(RF_Channel_Gain_Matrix,RF_SINR_Matrix);
+  Calculate_VLC_SINR_Matrix(VLC_Channel_Gain_Matrix,VLC_SINR_Matrix);
+  
+  #if DEBUG_MODE
+    print_RF_SINR_Matrix(RF_SINR_Matrix);
+    print_VLC_SINR_Matrix(VLC_SINR_Matrix);
+  #endif
+
+  //算RF/VLC的DataRate
+  Calculate_RF_DataRate_Matrix(RF_SINR_Matrix , RF_DataRate_Matrix);
+  Calculate_VLC_DataRate_Matrix(VLC_SINR_Matrix , VLC_DataRate_Matrix);
+  
+  #if DEBUG_MODE
+    print_RF_DataRate_Matrix(RF_DataRate_Matrix);
+    print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
+  #endif
 
   /** add ip/tcp stack to all nodes.**/
   InternetStackHelper internet;
@@ -231,7 +256,7 @@ int main (int argc, char *argv[])
     }
   }  
   // Trace changes to the congestion window
-  Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
+  //Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
 
   ApplicationContainer::Iterator i;
   for (i = apps.Begin (); i != apps.End (); ++i){

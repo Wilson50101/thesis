@@ -16,6 +16,10 @@ double RadtoDeg(const double & radian);
 
 double DegtoRad(const double & degree);
 
+double GetDistance_AP_UE(Ptr<Node> AP, Ptr<Node> UE);
+
+double Get_Incidence_Angle_AP_UE(Ptr<Node> AP, Ptr<Node> UE);
+
 void Calculate_RF_Channel_Gain_Matrix(NodeContainer  & RF_AP_Node , NodeContainer  & UE_Nodes ,std::vector<std::vector<double>>  & RF_Channel_Gain_Matrix);
 
 void Calculate_VLC_Channel_Gain_Matrix(NodeContainer  & VLC_AP_Nodes , NodeContainer  &UE_Nodes ,std::vector<std::vector<double>>  &VLC_Channel_Gain_Matrix);
@@ -24,7 +28,8 @@ double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP , Ptr<Node> UE);
 
 double Estimate_one_VLC_Channel_Gain(Ptr<Node> VLC_AP , Ptr<Node> UE);
 
-double GetDistance_AP_UE(Ptr<Node> AP, Ptr<Node> UE);
+void print_RF_Channel_Gain_Matrix(std::vector<std::vector<double>>  & RF_Channel_Gain_Matrix);
 
-double Get_Incidence_Angle_AP_UE(Ptr<Node> AP, Ptr<Node> UE);
+void print_VLC_Channel_Gain_Matrix(std::vector<std::vector<double>>  & VLC_Channel_Gain_Matrix);
+
 #endif

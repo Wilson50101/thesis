@@ -194,3 +194,37 @@ double Get_Incidence_Angle_AP_UE(Ptr<Node> AP, Ptr<Node> UE){
     //回傳的是弧度
     return angle;
 }
+
+//印RF Channel gain
+void print_RF_Channel_Gain_Matrix(std::vector<std::vector<double>>  & RF_Channel_Gain_Matrix){
+    std::cout<<"RF Channel Gain Matrix as below : "<<std::endl;
+    
+    for(int i=0 ; i < RF_AP_Num ; i++){
+       
+        for(int j=0 ; j < UE_Num ; j++){
+            std::cout<<RF_Channel_Gain_Matrix[i][j]<<" ";
+        }
+        
+        std::cout<<std::endl;
+    }
+
+    std::cout<<std::endl;
+}
+
+//印VLC Channel gain
+void print_VLC_Channel_Gain_Matrix(std::vector<std::vector<double>>  & VLC_Channel_Gain_Matrix){
+    std::cout<<"VLC Channel Gain Matrix as below : "<<std::endl;
+    
+    for(int i=0 ; i < VLC_AP_Num ; i++){
+        
+        for(int j=0 ; j < UE_Num ; j++){
+            
+            std::cout<<VLC_Channel_Gain_Matrix[i][j]<<" ";
+        
+        }
+
+        std::cout<<std::endl;
+    }
+
+    std::cout<<std::endl;
+}

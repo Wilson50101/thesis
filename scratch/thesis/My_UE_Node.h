@@ -38,8 +38,10 @@ class My_UE_Node {
         void AddCurrentRound_satisfication_level(double satis_level);
         std::vector<double> Get_satisfication_level_History(void);
         
-        std::vector<My_UE_Node> Initialize_My_UE_Node_list(NodeContainer  & UE_Nodes);
+        
+
     private :
+    
         int Node_ID;                                 //user id
         Vector pos;                                  //user position
         double required_datarate;                    //records required datarate (demand)
