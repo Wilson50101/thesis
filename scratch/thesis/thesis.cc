@@ -32,7 +32,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
+#include <algorithm>
 
 #include "ns3/core-module.h"
 #include "ns3/applications-module.h"
@@ -45,6 +45,8 @@
 #include "My_UE_Node.h"
 #include "MyAlgo.h"
 #include "Channel.h"
+#include "print.h"
+#include "DynamicLB.h"
 
 using namespace ns3;
 
@@ -52,7 +54,10 @@ NS_LOG_COMPONENT_DEFINE ("TcpLargeTransfer");
 std::vector<double> Received(1, 0);
 std::vector<double> theTime(1, 0);
 
-std::vector<std::vector<int>> Association_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<int> (UE_Num,0));
+std::vector<std::vector<int>> AP_Association_Matrix( RF_AP_Num + VLC_AP_Num , std::vector<int> (UE_Num,0));                             //χ(i,u)
+std::vector<std::vector<double>> TDMA_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num +1 ,0));                               //ρ(i,u)
+
+std::vector<std::vector<double>> Handover_Efficiency_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (RF_AP_Num + VLC_AP_Num,0));    //η(i,j)
 
 std::vector<std::vector<double>> RF_Channel_Gain_Matrix(RF_AP_Num,std::vector<double> (UE_Num,0));
 std::vector<std::vector<double>> VLC_Channel_Gain_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
@@ -95,6 +100,24 @@ static void RxEndAddress(Ptr<const Packet> p, const Address &address) { // used 
 void change_dev_rate(NetDeviceContainer & channel){
   DynamicCast<PointToPointNetDevice>(channel.Get(0))->SetDataRate(DataRate("500Mbps"));
   DynamicCast<PointToPointNetDevice>(channel.Get(1))->SetDataRate(DataRate("500Mbps"));
+}
+
+void Dynamic_Update_to_NextState(
+  NodeContainer  & RF_AP_Nodes , 
+  NodeContainer  & VLC_AP_Nodes , 
+  NodeContainer  & UE_Nodes,
+  std::vector<std::vector<NetDeviceContainer>> & VLC_Channel ,
+  std::vector<My_UE_Node> & myUElist){
+
+  std::cout<<Simulator::Now()<<"Recursion"<<std::endl;
+  DynamicLB(RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+  RF_SINR_Matrix , VLC_SINR_Matrix , 
+  RF_DataRate_Matrix , VLC_DataRate_Matrix,
+  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
+
+  if(!Simulator::IsFinished())
+    Simulator::Schedule(Seconds(0.0),& Dynamic_Update_to_NextState, RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes, VLC_Channel , myUElist);
 }
 
 int main (int argc, char *argv[])
@@ -154,36 +177,20 @@ int main (int argc, char *argv[])
     print_UE_position(UE_Nodes);          //for debug use
   #endif
 
+  //生成自定義的UElist
   std::vector<My_UE_Node> myUElist = Initialize_My_UE_Node_list(UE_Nodes);
+
+  //並根據Required datarate做大到小排序
+  sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
   
 
-  //算RF/VLC的Channel gain
-  Calculate_RF_Channel_Gain_Matrix(RF_AP_Nodes,UE_Nodes,RF_Channel_Gain_Matrix);
-  Calculate_VLC_Channel_Gain_Matrix(VLC_AP_Nodes,UE_Nodes,VLC_Channel_Gain_Matrix);
-  
-  #if DEBUG_MODE
-    print_RF_Channel_Gain_Matrix(RF_Channel_Gain_Matrix);
-    print_VLC_Channel_Gain_Matrix(VLC_Channel_Gain_Matrix);
-  #endif
-  
 
-  //算RF/VLC的SINR
-  Calculate_RF_SINR_Matrix(RF_Channel_Gain_Matrix,RF_SINR_Matrix);
-  Calculate_VLC_SINR_Matrix(VLC_Channel_Gain_Matrix,VLC_SINR_Matrix);
-  
-  #if DEBUG_MODE
-    print_RF_SINR_Matrix(RF_SINR_Matrix);
-    print_VLC_SINR_Matrix(VLC_SINR_Matrix);
-  #endif
+  DynamicLB(RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+  RF_SINR_Matrix , VLC_SINR_Matrix , 
+  RF_DataRate_Matrix , VLC_DataRate_Matrix,
+  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
 
-  //算RF/VLC的DataRate
-  Calculate_RF_DataRate_Matrix(RF_SINR_Matrix , RF_DataRate_Matrix);
-  Calculate_VLC_DataRate_Matrix(VLC_SINR_Matrix , VLC_DataRate_Matrix);
-  
-  #if DEBUG_MODE
-    print_RF_DataRate_Matrix(RF_DataRate_Matrix);
-    print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
-  #endif
 
   /** add ip/tcp stack to all nodes.**/
   InternetStackHelper internet;
@@ -233,7 +240,7 @@ int main (int argc, char *argv[])
 
 
   
-  //set serve Port
+  // set serve Port
   uint16_t servPort = 50000;
 
   // Create a packet sink to receive these packets on n2...
@@ -243,7 +250,7 @@ int main (int argc, char *argv[])
   ApplicationContainer apps ;
   apps.Add(sink.Install(UE_Nodes));
   apps.Start (Seconds (0.0));
-  //apps.Stop (Seconds (6.0));
+  apps.Stop (Seconds (6.0));
 
 
 
@@ -256,7 +263,7 @@ int main (int argc, char *argv[])
     }
   }  
   // Trace changes to the congestion window
-  //Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
+  // Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
 
   ApplicationContainer::Iterator i;
   for (i = apps.Begin (); i != apps.End (); ++i){
@@ -271,11 +278,19 @@ int main (int argc, char *argv[])
       Simulator::Schedule(Seconds(0.0),&StartFlow,localSockets[i][j],ipvec[ipvec_index++].GetAddress(1), servPort);
     }
   }
-  Simulator::Schedule(Seconds(4.0),&change_dev_rate,VLC_Channel[0][0]);
+
+  Simulator::Schedule(Seconds(1.5),& Dynamic_Update_to_NextState, RF_AP_Nodes , 
+  VLC_AP_Nodes , UE_Nodes, VLC_Channel , myUElist);
   
   
-  Simulator::Stop (Seconds (6));
+  Simulator::Stop (Seconds (3));
   Simulator::Run ();
+
+  #if DEBUG_MODE
+    print_RF_DataRate_Matrix(RF_DataRate_Matrix);
+    print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
+  #endif
+
   Simulator::Destroy ();
 }
 

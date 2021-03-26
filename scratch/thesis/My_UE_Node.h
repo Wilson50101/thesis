@@ -26,16 +26,18 @@ class My_UE_Node {
         void Set_Required_DataRate(double data_rate_in_Mbps);
         double Get_Required_DataRate(void);
 
-        void Set_Associated_AP(int associated_AP_index);
-        int Get_Associated_AP(void);
+        void Set_Now_Associated_AP(int associated_AP_index);
+        int Get_Now_Associated_AP(void);
         
+        int Get_Prev_Associated_AP(void);
+
         void Set_SINR(double in_SINR);
         double Get_SINR(void);
 
-        void AddCurrentRound_Achievable_DataRate(double data_rate_in_Mbps);
+        void AddNowRound_Achievable_DataRate(double data_rate_in_Mbps);
         std::vector<double> Get_Achievable_DataRate_History(void);
 
-        void AddCurrentRound_satisfication_level(double satis_level);
+        void AddNowRound_satisfication_level(double satis_level);
         std::vector<double> Get_satisfication_level_History(void);
         
         
@@ -45,7 +47,8 @@ class My_UE_Node {
         int Node_ID;                                 //user id
         Vector pos;                                  //user position
         double required_datarate;                    //records required datarate (demand)
-        int associated_AP;                           //records AP in now round     
+        int prev_associated_AP;                      //records AP in last round  
+        int now_associated_AP;                       //records AP in now round     
         double SINR;                                 //records SINR in now round
         std::vector<double> achievable_datarate;     //records data rate foreach round
         std::vector<double> satisfication_level;     //records satification foreach round

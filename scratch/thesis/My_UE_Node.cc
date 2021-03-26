@@ -9,10 +9,10 @@
 
 using namespace ns3;
 My_UE_Node::My_UE_Node(int id,Vector in_pos,double required_rate){
-    Node_ID=id;
+    Node_ID = id;
     pos = in_pos;
     required_datarate = required_rate;
-    associated_AP = -1;
+    now_associated_AP = -1;
     SINR = 0;
 }
 
@@ -46,13 +46,19 @@ My_UE_Node::Get_Required_DataRate(void){
 }
 
 void 
-My_UE_Node::Set_Associated_AP(int associated_AP_index){
-    associated_AP = associated_AP_index;
+My_UE_Node::Set_Now_Associated_AP(int associated_AP_index){
+    prev_associated_AP = now_associated_AP;
+    now_associated_AP = associated_AP_index;
 }
 
 int 
-My_UE_Node::Get_Associated_AP(void){
-    return associated_AP;
+My_UE_Node::Get_Now_Associated_AP(void){
+    return now_associated_AP;
+}
+
+int 
+My_UE_Node::Get_Prev_Associated_AP(void){
+    return prev_associated_AP;
 }
 
 void 
@@ -66,7 +72,7 @@ My_UE_Node::Get_SINR(void){
 }
 
 void 
-My_UE_Node::AddCurrentRound_Achievable_DataRate(double data_rate_in_Mbps){
+My_UE_Node::AddNowRound_Achievable_DataRate(double data_rate_in_Mbps){
     achievable_datarate.push_back(data_rate_in_Mbps);
 }
 
@@ -76,7 +82,7 @@ My_UE_Node::Get_Achievable_DataRate_History(void){
 }
 
 void 
-My_UE_Node::AddCurrentRound_satisfication_level(double satis_level){
+My_UE_Node::AddNowRound_satisfication_level(double satis_level){
     satisfication_level.push_back(satis_level);
 }
 
