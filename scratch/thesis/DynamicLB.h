@@ -3,7 +3,8 @@
 
 #include "My_UE_Node.h"
 
-void DynamicLB(
+void Benchmark_DynamicLB(
+  int & state,
   NodeContainer  & RF_AP_Nodes , 
   NodeContainer  & VLC_AP_Nodes , 
   NodeContainer  & UE_Nodes,
@@ -15,11 +16,10 @@ void DynamicLB(
   std::vector<std::vector<double>> & VLC_DataRate_Matrix,
   std::vector<std::vector<double>> & Handover_Efficiency_Matrix ,
   std::vector<std::vector<int>>    & AP_Association_Matrix ,                          
-  std::vector<std::vector<double>> & TDMA_Matrix ,
   std::vector<My_UE_Node> & myUElist);
 
 
-void DoPreCalculation(
+void PreCalculation(
   NodeContainer  & RF_AP_Node , 
   NodeContainer  & VLC_AP_Nodes , 
   NodeContainer  & UE_Nodes,
@@ -30,5 +30,22 @@ void DoPreCalculation(
   std::vector<std::vector<double>> & RF_DataRate_Matrix ,
   std::vector<std::vector<double>> & VLC_DataRate_Matrix,
   std::vector<std::vector<double>> & Handover_Efficiency_Matrix);
+   
+void Benchmark_LB_stateN( 
+  std::vector<std::vector<double>> & RF_DataRate_Matrix ,
+  std::vector<std::vector<double>> & VLC_DataRate_Matrix,
+  std::vector<std::vector<double>> & Handover_Efficiency_Matrix,
+  std::vector<std::vector<int>>    & AP_Association_Matrix ,                          
+  std::vector<My_UE_Node> & myUElist);
 
+
+void Benchmark_RSS_state0( 
+  std::vector<std::vector<double>> & RF_DataRate_Matrix ,
+  std::vector<std::vector<double>> & VLC_DataRate_Matrix,
+  std::vector<std::vector<double>> & Handover_Efficiency_Matrix,
+  std::vector<std::vector<int>>    & AP_Association_Matrix ,                          
+  std::vector<My_UE_Node> & myUElist);
+
+void Update_APSelection_Result(std::vector<My_UE_Node> & myUElist , std::vector<int> & beta_u , std::vector<int> & served_UE_Num , std::vector<std::vector<int>>  & AP_Association_Matrix );
+void Update_RA_Result( std::vector<My_UE_Node> & myUElist , std::vector<double> & AchievableRate);
 #endif

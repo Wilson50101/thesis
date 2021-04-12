@@ -30,6 +30,7 @@
 //  Usage (e.g.): ./waf --run tcp-large-transfer
 
 #include <iostream>
+#include <stdlib.h>
 #include <fstream>
 #include <string>
 #include <algorithm>
@@ -49,6 +50,7 @@
 #include "DynamicLB.h"
 
 using namespace ns3;
+// using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("TcpLargeTransfer");
 std::vector<double> Received(1, 0);
@@ -68,10 +70,12 @@ std::vector<std::vector<double>> VLC_SINR_Matrix(VLC_AP_Num,std::vector<double> 
 std::vector<std::vector<double>> RF_DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num,0));
 std::vector<std::vector<double>> VLC_DataRate_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
 
+std::vector<double> recorded_avg_datarate_per_UE(UE_Num , 0);
 
 static const uint32_t totalTxBytes = 10000000;
 static uint32_t currentTxBytes = 0;
 static const uint32_t writeSize = 1040;
+static int state = 0 ;
 uint8_t data[writeSize];
 
 
@@ -97,27 +101,40 @@ static void RxEndAddress(Ptr<const Packet> p, const Address &address) { // used 
     std::cout<< "IP: "<<InetSocketAddress::ConvertFrom(address).GetIpv4 ()<<" received size: "<<p->GetSize()<<" at: "<< Simulator::Now().GetSeconds()<<"s"<< std::endl;
 }
 
-void change_dev_rate(NetDeviceContainer & channel){
-  DynamicCast<PointToPointNetDevice>(channel.Get(0))->SetDataRate(DataRate("500Mbps"));
-  DynamicCast<PointToPointNetDevice>(channel.Get(1))->SetDataRate(DataRate("500Mbps"));
-}
+// void change_dev_rate(NetDeviceContainer & channel){
+//   DynamicCast<PointToPointNetDevice>(channel.Get(0))->SetDataRate(DataRate("500Mbps"));
+//   DynamicCast<PointToPointNetDevice>(channel.Get(1))->SetDataRate(DataRate("500Mbps"));
+// }
 
 void Dynamic_Update_to_NextState(
   NodeContainer  & RF_AP_Nodes , 
   NodeContainer  & VLC_AP_Nodes , 
   NodeContainer  & UE_Nodes,
-  std::vector<std::vector<NetDeviceContainer>> & VLC_Channel ,
   std::vector<My_UE_Node> & myUElist){
 
-  std::cout<<Simulator::Now()<<"Recursion"<<std::endl;
-  DynamicLB(RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+  // std::cout<<Simulator::Now()<<" Result of State"<< state <<std::endl;
+  
+  Benchmark_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
   RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
   RF_SINR_Matrix , VLC_SINR_Matrix , 
   RF_DataRate_Matrix , VLC_DataRate_Matrix,
-  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
+  Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
+  
+
+
+  //再多用recorded_avg_datarate_per_UE記錄每個UE的歷史平均速率
+  //此舉是爲了提供給Simulator::Run()之後的程式取得datarate
+  //否則直接從myUElist去取用不知爲何都是0
+  for(int i=0;i<myUElist.size();i++)
+      
+    recorded_avg_datarate_per_UE[i] = myUElist[i].Get_Avg_DataRate();  
+
+
 
   if(!Simulator::IsFinished())
-    Simulator::Schedule(Seconds(0.0),& Dynamic_Update_to_NextState, RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes, VLC_Channel , myUElist);
+
+    Simulator::Schedule(MilliSeconds(Tp),& Dynamic_Update_to_NextState, RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes, myUElist);
+  
 }
 
 int main (int argc, char *argv[])
@@ -179,117 +196,158 @@ int main (int argc, char *argv[])
 
   //生成自定義的UElist
   std::vector<My_UE_Node> myUElist = Initialize_My_UE_Node_list(UE_Nodes);
-
+  
+  // std::cout<<"Demand for each UE : "<<std::endl;
+  // for(int i = 0 ; i < myUElist.size() ; i++){
+  //       std::cout<<"id:"<<myUElist[i].GetID()<<" "<<myUElist[i].Get_Required_DataRate()<<" Mbps"<<std::endl;
+  // }
   //並根據Required datarate做大到小排序
-  sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
+  //sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
   
 
 
-  DynamicLB(RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
-  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
-  RF_SINR_Matrix , VLC_SINR_Matrix , 
-  RF_DataRate_Matrix , VLC_DataRate_Matrix,
-  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
+  // Benchmark_DynamicLB(state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+  // RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+  // RF_SINR_Matrix , VLC_SINR_Matrix , 
+  // RF_DataRate_Matrix , VLC_DataRate_Matrix,
+  // Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
 
 
   /** add ip/tcp stack to all nodes.**/
-  InternetStackHelper internet;
-  internet.InstallAll ();
+  // InternetStackHelper internet;
+  // internet.InstallAll ();
   
 
  
 
-  /** set p2p helper **/
-  PointToPointHelper p2p;
-  p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
-  p2p.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (0.1)));
+  // /** set p2p helper **/
+  // PointToPointHelper p2p;
+  // p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+  // p2p.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (0.1)));
 
   
   
-  /*
-    Channel[i][j] 放的是 AP i - UE j的link
-    該link用Netdevicecontainer表達
-    Netdevicecontainer.Get(0) = transmitter device
-    Netdevicecontainer.Get(1) = receiver device
-  */
+  // /*
+  //   Channel[i][j] 放的是 AP i - UE j的link
+  //   該link用Netdevicecontainer表達
+  //   Netdevicecontainer.Get(0) = transmitter device
+  //   Netdevicecontainer.Get(1) = receiver device
+  // */
   
-  std::vector<std::vector<NetDeviceContainer>> VLC_Channel(VLC_AP_Num,std::vector<NetDeviceContainer> (UE_Num));  
-  for(int i=0;i<VLC_AP_Num;i++){
-    for(int j=0;j<UE_Num;j++){
-      VLC_Channel[i][j]=p2p.Install(VLC_AP_Nodes.Get(i),UE_Nodes.Get(j));
-    }
-  }
+  // std::vector<std::vector<NetDeviceContainer>> VLC_Channel(VLC_AP_Num,std::vector<NetDeviceContainer> (UE_Num));  
+  // for(int i=0;i<VLC_AP_Num;i++){
+  //   for(int j=0;j<UE_Num;j++){
+  //     VLC_Channel[i][j]=p2p.Install(VLC_AP_Nodes.Get(i),UE_Nodes.Get(j));
+  //   }
+  // }
    
-  /** Later, we add IP addresses. **/
-  std::vector<Ipv4InterfaceContainer> ipvec;
-  Ipv4AddressHelper ipv4;
-  for(int i=0;i<VLC_AP_Num;i++){
-    for(int j=0;j<UE_Num;j++){
-      std::string addressStr = "10."+intToString(i+1) +"." + intToString(j+1) + ".0";
-      ipv4.SetBase(addressStr.c_str(),"255.255.255.0");
-      ipvec.push_back(ipv4.Assign (VLC_Channel[i][j]));
+  // /** Later, we add IP addresses. **/
+  // std::vector<Ipv4InterfaceContainer> ipvec;
+  // Ipv4AddressHelper ipv4;
+  // for(int i=0;i<VLC_AP_Num;i++){
+  //   for(int j=0;j<UE_Num;j++){
+  //     std::string addressStr = "10."+intToString(i+1) +"." + intToString(j+1) + ".0";
+  //     ipv4.SetBase(addressStr.c_str(),"255.255.255.0");
+  //     ipvec.push_back(ipv4.Assign (VLC_Channel[i][j]));
       
-      #if DEBUG_MODE
-        std::cout<<ipvec.back().GetAddress(1)<<" ";
-      #endif
-    }
-    #if DEBUG_MODE
-      std::cout << std::endl;
-    #endif
-  }
+  //     #if DEBUG_MODE
+  //       std::cout<<ipvec.back().GetAddress(1)<<" ";
+  //     #endif
+  //   }
+  //   #if DEBUG_MODE
+  //     std::cout << std::endl;
+  //   #endif
+  // }
 
 
   
-  // set serve Port
-  uint16_t servPort = 50000;
+  // // set serve Port
+  // uint16_t servPort = 50000;
 
-  // Create a packet sink to receive these packets on n2...
-  PacketSinkHelper sink ("ns3::TcpSocketFactory",
-                         InetSocketAddress (Ipv4Address::GetAny (), servPort));
+  // // Create a packet sink to receive these packets on n2...
+  // PacketSinkHelper sink ("ns3::TcpSocketFactory",
+  //                        InetSocketAddress (Ipv4Address::GetAny (), servPort));
 
-  ApplicationContainer apps ;
-  apps.Add(sink.Install(UE_Nodes));
-  apps.Start (Seconds (0.0));
-  apps.Stop (Seconds (6.0));
+  // ApplicationContainer apps ;
+  // apps.Add(sink.Install(UE_Nodes));
+  // apps.Start (Seconds (0.0));
+  // apps.Stop (Seconds (6.0));
 
 
 
-  // Create and bind the socket...
-  std::vector<std::vector<Ptr<Socket>>> localSockets(VLC_AP_Num,std::vector<Ptr<Socket> > (UE_Num));
-  for(int i=0;i<VLC_AP_Num;i++){
-    for(int j=0;j<UE_Num;j++){
-      localSockets[i][j] = Socket::CreateSocket (VLC_AP_Nodes.Get (i), TcpSocketFactory::GetTypeId ()); 
-      localSockets[i][j]->Bind();
-    }
-  }  
-  // Trace changes to the congestion window
-  // Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
+  // // Create and bind the socket...
+  // std::vector<std::vector<Ptr<Socket>>> localSockets(VLC_AP_Num,std::vector<Ptr<Socket> > (UE_Num));
+  // for(int i=0;i<VLC_AP_Num;i++){
+  //   for(int j=0;j<UE_Num;j++){
+  //     localSockets[i][j] = Socket::CreateSocket (VLC_AP_Nodes.Get (i), TcpSocketFactory::GetTypeId ()); 
+  //     localSockets[i][j]->Bind();
+  //   }
+  // }  
+  // // Trace changes to the congestion window
+  // // Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
 
-  ApplicationContainer::Iterator i;
-  for (i = apps.Begin (); i != apps.End (); ++i){
-          (*i)->TraceConnectWithoutContext("Rx", MakeCallback(&RxEndAddress));
-  }
-  // ...and schedule the sending "Application"; This is similar to what an 
-  // ns3::Application subclass would do internally.
+  // ApplicationContainer::Iterator i;
+  // for (i = apps.Begin (); i != apps.End (); ++i){
+  //         (*i)->TraceConnectWithoutContext("Rx", MakeCallback(&RxEndAddress));
+  // }
+  // // ...and schedule the sending "Application"; This is similar to what an 
+  // // ns3::Application subclass would do internally.
 
-  int ipvec_index=0;
-  for(int i=0;i<VLC_AP_Num;i++){
-    for(int j=0;j<UE_Num;j++){
-      Simulator::Schedule(Seconds(0.0),&StartFlow,localSockets[i][j],ipvec[ipvec_index++].GetAddress(1), servPort);
-    }
-  }
+  // int ipvec_index=0;
+  // for(int i=0;i<VLC_AP_Num;i++){
+  //   for(int j=0;j<UE_Num;j++){
+  //     Simulator::Schedule(Seconds(0.0),&StartFlow,localSockets[i][j],ipvec[ipvec_index++].GetAddress(1), servPort);
+  //   }
+  // }
 
-  Simulator::Schedule(Seconds(1.5),& Dynamic_Update_to_NextState, RF_AP_Nodes , 
-  VLC_AP_Nodes , UE_Nodes, VLC_Channel , myUElist);
+  Simulator::Schedule(Seconds(0.0),& Dynamic_Update_to_NextState, RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes, myUElist);
   
   
-  Simulator::Stop (Seconds (3));
+  Simulator::Stop (Minutes(2));
   Simulator::Run ();
 
-  #if DEBUG_MODE
-    print_RF_DataRate_Matrix(RF_DataRate_Matrix);
-    print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
-  #endif
+  // #if DEBUG_MODE
+  //   print_RF_DataRate_Matrix(RF_DataRate_Matrix);
+  //   print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
+  // #endif
+
+  //system avg rate
+  double sum=0;
+  for(int i=0;i<UE_Num;i++){
+    // std::cout<<"UE "<<i<<" Avg DR="<<recorded_avg_datarate_per_UE[i]<<std::endl;
+    sum += recorded_avg_datarate_per_UE[i];
+  }
+    double sys_avg_rate = sum / UE_Num ;
+  //std::cout<<"System Avg  DR="<< sys_avg_rate <<std::endl;
+
+  double fairness;
+  double squareofsum = 0;
+  double sumofsquare = 0;
+  for(int i=0 ; i<UE_Num;i++){
+
+      squareofsum += recorded_avg_datarate_per_UE[i];
+      sumofsquare += pow(recorded_avg_datarate_per_UE[i],2);
+  }
+
+  squareofsum = pow(squareofsum,2);
+  fairness = squareofsum / (UE_Num * sumofsquare);
+  //std::cout<<"System Fairness index ="<< fairness <<std::endl;
+ 
+ 
+  std::fstream outFile;
+	outFile.open("/home/hsnl/repos/ns-3-allinone/ns-3.25/scratch/thesis/output.csv", std::ios::out|std::ios::app);
+  
+  if(!outFile.is_open())
+
+    std::cout<<"file not open";
+  
+  else
+  {
+    outFile << sys_avg_rate  << ',' << fairness << ',' << std::endl; 
+  }
+
+  outFile.close();
+
 
   Simulator::Destroy ();
 }

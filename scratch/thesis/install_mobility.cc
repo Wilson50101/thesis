@@ -13,42 +13,60 @@ using namespace ns3;
 /*
     安裝RF_AP的移動模型
 
-    Note ： 論文預設只有一個RF_AP ， 我直接寫死了
+    Note : 在房間內AP分布如鏈接的圖
+
+    https://imgur.com/PTNsJoK
+
+    依照上圖方式配置位置
+   
+    其中
+    房間被長寬皆被 每行or每列的2個RF_AP 分成3段
 */
 void install_RF_AP_mobility(NodeContainer & RF_AP_Nodes){
+    
     MobilityHelper RF_AP_Mobility;
     
+    double delta = room_size /(RF_AP_per_row + 1); //1 row 被 n個AP 分成 n+1段距離
+
+    /** 設定RF_AP的初始位置 **/
     Ptr < ListPositionAllocator > RF_AP_Pos_list = CreateObject<ListPositionAllocator>();
+    
+    for(int i=0;i<RF_AP_Num;i++){
 
-    //RF AP位於房間天花板中心點（0，0）
-    //高度 = RF_AP_height
-    RF_AP_Pos_list->Add(Vector(0,0,RF_AP_height));
+        //x,y這樣設 ， AP位置才會長得像鏈接圖示這樣
+        double x = ( i % RF_AP_per_row +1) * delta;
+        double y = ( RF_AP_per_row - i / RF_AP_per_row ) * delta;
 
+        //但是要注意實際上房間左下角是（-room_size/2 , -room_size/2）
+        //上面的的假設是房間左下角是（0,0）
+        //所以x,y都還要做平移的坐標修正
+        x-=room_size/2;
+        y-=room_size/2;
+
+
+        //將（x,y）加入 position list中
+        RF_AP_Pos_list->Add(Vector(x,y,RF_AP_height));
+    }
+
+    //用剛剛的postion list 設定 PositionAllocator
     RF_AP_Mobility.SetPositionAllocator(RF_AP_Pos_list);
+
 
     //RF AP靜止不動
     RF_AP_Mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-
     RF_AP_Mobility.Install(RF_AP_Nodes);
 }
 
 /*
     安裝VLC_AP的移動模型
 
-    Note : 在房間內呈均勻Grid分布如下
    
-   room_size
-   ————————————————————
-   |  |   |   |   |  |
-   |- 1 - 2 - 3 - 4 -|
-   |  |   |   |   |  |
-   |- 5 - 6 - 7 - 8 -|
-   |  |   |   |   |  |
-   |- 9 - 10- 11- 12-|
-   |  |   |   |   |  |
-   |- 13- 14- 15- 16-|
-   |  |   |   |   |  |
-  0 ------------------- room_size
+    Note : 在房間內AP分布如鏈接的圖
+
+    https://imgur.com/PTNsJoK
+
+    依照上圖方式配置位置
+
    其中
    1.兩AP間
    2.AP和牆壁之間
@@ -130,11 +148,14 @@ void install_UE_mobility(NodeContainer & UE_Nodes){
     //y 範圍 =  -room_size / 2 ~ room_size / 2
     UE_Mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
                              "Mode", StringValue ("Time"),
-                             "Time", StringValue ("2s"),
+                             "Time", StringValue ("2.5s"),
                              "Speed", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=2.0]"),
+                             "Direction",StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=6.283184]"),
                              "Bounds", RectangleValue (Rectangle (-room_size / 2, room_size / 2, -room_size / 2, room_size / 2)));
     
     UE_Mobility.Install (UE_Nodes);
+
+                   
 }
 
 void print_RF_AP_position(NodeContainer &RF_AP_Nodes){

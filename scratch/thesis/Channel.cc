@@ -229,11 +229,10 @@ void Calculate_VLC_SINR_Matrix(std::vector<std::vector<double>> & VLC_Channel_Ga
 }
 
 //計算某個 pair(RF_AP,UE)的SINR
-//Note : 實際上paper只有一個RF_AP，所以等同SNR
-
+//Note : paper假設RF_AP之間使用不同的頻寬，不會有幹擾項，所以等同SNR
 double Estimate_one_RF_SINR(std::vector<std::vector<double>>  & RF_Channel_Gain_Matrix , int RF_AP_Index , int UE_Index){
   
-  //只有一個RF_AP，所以interference = 0
+  //不會有幹擾項(等同SNR)，所以interference = 0
   double interference = 0;
 
   //再計算出noise項
@@ -273,7 +272,7 @@ void Calculate_RF_DataRate_Matrix(std::vector<std::vector<double>>  & RF_SINR_Ma
     
     for(int j=0 ; j < UE_Num ; j++){
       
-      RF_DataRate_Matrix[i][j] = RF_AP_Bandwidth * log2(1 + RF_SINR_Matrix[i][j]) ;
+      RF_DataRate_Matrix[i][j] =  RF_AP_Bandwidth * log2(1 + RF_SINR_Matrix[i][j]) ;
     
     }
   }

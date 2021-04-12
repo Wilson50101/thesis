@@ -9,11 +9,15 @@
 
 using namespace ns3;
 My_UE_Node::My_UE_Node(int id,Vector in_pos,double required_rate){
+    
     Node_ID = id;
     pos = in_pos;
     required_datarate = required_rate;
+    avg_datarate = 0 ;
+    prev_associated_AP = -1;
     now_associated_AP = -1;
     SINR = 0;
+
 }
 
 // void 
@@ -46,6 +50,16 @@ My_UE_Node::Get_Required_DataRate(void){
 }
 
 void 
+My_UE_Node::Set_Avg_DataRate(double data_rate_in_Mbps){
+    avg_datarate = data_rate_in_Mbps;
+}
+
+double 
+My_UE_Node::Get_Avg_DataRate(void){
+    return avg_datarate;
+}
+
+void 
 My_UE_Node::Set_Now_Associated_AP(int associated_AP_index){
     prev_associated_AP = now_associated_AP;
     now_associated_AP = associated_AP_index;
@@ -72,17 +86,26 @@ My_UE_Node::Get_SINR(void){
 }
 
 void 
-My_UE_Node::AddNowRound_Achievable_DataRate(double data_rate_in_Mbps){
+My_UE_Node::Add_Curr_Achievable_DataRate(double data_rate_in_Mbps){
     achievable_datarate.push_back(data_rate_in_Mbps);
+
+    //更新了新的data rate就可以更新avg data rate
+    double sum = 0; //歷史總和
+    for(int i =  0 ; i < achievable_datarate.size() ; i++) sum += achievable_datarate[i];
+
+    //歷史平均 = 歷史總和 / 樣本個數
+    Set_Avg_DataRate( sum /  achievable_datarate.size());
+
 }
 
+// 用不到
 std::vector<double> 
 My_UE_Node::Get_Achievable_DataRate_History(void){
     return achievable_datarate;
 }
 
 void 
-My_UE_Node::AddNowRound_satisfication_level(double satis_level){
+My_UE_Node::Add_Curr_satisfication_level(double satis_level){
     satisfication_level.push_back(satis_level);
 }
 

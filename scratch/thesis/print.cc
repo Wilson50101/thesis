@@ -92,8 +92,8 @@ void print_RF_DataRate_Matrix(std::vector<std::vector<double>>  & RF_DataRate_Ma
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout<<RF_DataRate_Matrix[i][j]<<" ";
-        
+            std::cout << RF_DataRate_Matrix[i][j] << " ";
+            
         }
         
         std::cout<<std::endl;
@@ -111,8 +111,8 @@ void print_VLC_DataRate_Matrix(std::vector<std::vector<double>>  & VLC_DataRate_
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout<<VLC_DataRate_Matrix[i][j]<<" ";
-        
+            std::cout << VLC_DataRate_Matrix[i][j] << " ";
+           
         }
         
         std::cout<<std::endl;

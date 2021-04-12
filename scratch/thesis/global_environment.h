@@ -1,6 +1,6 @@
 #ifndef GLOBAL_ENVIROMENT_H
 #define GLOBAL_ENVIROMENT_H
-#define DEBUG_MODE 1            //控制是否要印出debug message
+#define DEBUG_MODE 0            //控制是否要印出debug message
 #define PI 3.14
 #define BENCHMARK_HO_DESIGN 1   //控制handover overhead 要使用何種設定?
 ////////////////////////////////////////////////////////
@@ -11,7 +11,7 @@
 const double room_size=40;
 
 // - RF AP number : 1                              
-const int RF_AP_Num = 1;   
+const int RF_AP_Num = 4;   
 
 // - VLC AP number : 4*4=16                              
 const int VLC_AP_Num = 16;   
@@ -19,14 +19,17 @@ const int VLC_AP_Num = 16;
 // - foreach row , VLC AP number = sqrt(VLC_AP_Num) //assume VLC_AP_Num is a square num
 const int VLC_AP_per_row = 4;
 
+// - foreach row , RF AP number = sqrt(RF_AP_Num) //assume RF_AP_Num is a square num
+const int RF_AP_per_row = 2;
+
 // - UE number : 10-70 step 10                   
-const int UE_Num = 40;
+const int UE_Num = 60;
 
 // -Time period in each round : 500 ms = 0.5s
 const double Tp = 500; 
 
 // -mean of handover overhead : 25ms ~ 175ms
-const double meanHO = 75; 
+const double meanHO = 25; 
 
 ////////////////////////////////////////////////////////
 /////////          Each RF AP                  ////////
@@ -71,13 +74,15 @@ const double kappa = 0.53 ;
 const double UE_height = 0.85;                  
 
 //   - Avg required data rate
-//   - paper上的範圍約 29 ~ 33Mb/s = 232 ~ 264 Mbps
-//   - 目前先取 30Mb/s = 240 Mps 
-const double avg_require_data_rate = 240 ; // Mbps
+//   - 1MB/s = 8Mb/s = 8Mbps     
+//   - paper上的範圍約 29 ~ 33Mb/s
+//   - 目前先取 30Mb/s 
+//   - 單位換算參考 : https://kknews.cc/zh-tw/tech/953jzy5.html
+const double avg_require_data_rate = 30 ; // Mbps
 
-//   - threshold = 6~12 Mb/s = 48 ~ 96Mbps
-//   - 目前先定 9 Mb/s = 72Mbps
-const double threshold = 72 ;//Mbps
+//   - threshold = 6~12 Mb/s 
+//   - 目前先定 9 Mb/s
+const double threshold = 6 ;//Mbps
 
 
 ////////////////////////////////////////////////////////
