@@ -85,7 +85,7 @@ double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP,Ptr<Node> UE){
 
     double p = random_p(distribution);
     double hr = quantile(rayleigh, p);
-    std::cout << "hr = "<< hr <<std::endl;
+    
     rf_channel_gain = rf_channel_gain * hr;
     
 
