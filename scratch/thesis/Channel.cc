@@ -11,6 +11,7 @@
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
 #include "Channel.h"
+#include <boost/math/distributions/rayleigh.hpp>
 
 //弧度轉角度
 double RadtoDeg(const double & radian){
@@ -74,7 +75,19 @@ double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP,Ptr<Node> UE){
     //Gμ,α(f) = sqrt(10^(−L(d)/10)) * hr,
     double rf_channel_gain = sqrt(pow(10,((-1) * L_d / 10))) ;
 
-    //todo : hr我先沒有乘，因爲hr是Rayleigh distribution 這個分布C++沒有函數支援
+    //hr is Rayleigh distribution 
+    //Rayleigh distribution要額外裝C++ boost libraray才能用
+    //或是從uniform distribution間接產生
+    //To generate samples from a Rayleigh distribution with scale b, generate a uniform sample u from (0, 1) and return sqrt(-2 * b^2 * log(u)).
+    boost::math::rayleigh_distribution<double> rayleigh(sqrt(2.46));
+    std::uniform_real_distribution<double> random_p(0.0, 1.0);
+    
+
+    double p = random_p(distribution);
+    double hr = quantile(rayleigh, p);
+    std::cout << "hr = "<< hr <<std::endl;
+    rf_channel_gain = rf_channel_gain * hr;
+    
 
     return rf_channel_gain;
 }
