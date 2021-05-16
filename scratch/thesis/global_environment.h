@@ -11,7 +11,7 @@
 ////////////////////////////////////////////////////////
 
 // room size 40*40*3.5
-const double room_size=40;
+const double room_size = 40;
 
 // - RF AP number : 1                              
 const int RF_AP_Num = 4;   

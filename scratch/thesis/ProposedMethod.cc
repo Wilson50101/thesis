@@ -648,8 +648,9 @@ void share_by_propotion(
   std::vector<std::vector<int>>    & AP_Association_Matrix ,  
   std::vector<std::vector<double>> & TDMA_Matrix,                            
   std::vector<My_UE_Node> & myUElist){
-
         
+        
+
         //檢查所有WiFi AP
         for(int i = 0 ; i < RF_AP_Num ; i++)
         {
@@ -657,6 +658,7 @@ void share_by_propotion(
             //若有資源未分配完
             if(TDMA_Matrix[i][0] > 0)
             {
+                
                 
                 //記錄此AP下UE速度的倒數和，作爲分母
                 double Reciprocal_Sum_Of_DataRate = 0.0;
@@ -690,7 +692,8 @@ void share_by_propotion(
                             //更新該ue的分子
                             UE_to_DataRate[ue] = 1 / (Handover_Efficiency_Matrix[myUElist[ue].Get_Prev_Associated_AP()][i] * RF_DataRate_Matrix[i][ue]);
                         }
-                       
+
+                    
                     }
                 }
                 
@@ -705,6 +708,7 @@ void share_by_propotion(
                     //在myUElist[it->first]中更新分得時間比例
                     //Note : 此時的值即是最終值
                     myUElist[it->first].Set_Time_Fraction(TDMA_Matrix[i][it->first + 1]);
+
                 }
                 
                 //剩餘的資源皆分完
@@ -862,53 +866,108 @@ void save_lower_throughputUE(
                 //將此AP服務的UE們依照stage1獲得的throughput升序排列
                 //目的是先拯救throughput最低的人
                 sort(servedUE_of_AP.begin(),servedUE_of_AP.end(),[](std::pair<int,double> a,std::pair<int,double> b){return a.second < b.second;});
-
-                //i控制現在最多分配到第幾個UE爲止
-                for(int u = 1 ; u < servedUE_of_AP.size() ; u++)
+                
+                
+                
+                //如果此AP只服務1個UE，則全部給它
+                if(servedUE_of_AP.size() == 1)
                 {
-                    //need代表此輪分配需要佔用多少資源
-                    double need = 0;
-
-                    //extra記錄要多給哪個UE多少資源
-                    //extra.first : UE index
-                    //extra.second : 分配給extra.first的額外資源
-                    std::map<int,double> extra;
-
-                    //這一輪要將額外資源分配給前u個UE
-                    for(int k = 0 ; k < u ; k++)
-                    {
-
-                        //last_ap記錄servedUE_of_AP[k]放的UE，其上一輪AP是誰
-                        int last_ap = myUElist[servedUE_of_AP[k].first].Get_Prev_Associated_AP();
-                        
-                        //初始state不必考慮handover
-                        if(state == 0)
-            
-                            //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
-                            extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / RF_DataRate_Matrix[i][servedUE_of_AP[k].first];
-
-                       
-                           
-                        
-                        //非初始state則需要多考慮handover
-                        else
                     
-                            //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
-                            extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / Handover_Efficiency_Matrix[last_ap][i] * RF_DataRate_Matrix[i][servedUE_of_AP[k].first];
+                    //全給那個UE
+                    TDMA_Matrix[i][servedUE_of_AP.back().first + 1] += TDMA_Matrix[i][0];
 
-                          
 
-                        //記錄總需求量
-                        need += extra[servedUE_of_AP[k].first];
+                    //分完就沒有了
+                    TDMA_Matrix[i][0] = 0;
+                }
 
+                //否則代表此AP服務2個以上UE
+                else //if(servedUE_of_AP.size() > 1)
+                {
+                    //i控制現在最多分配到第幾個UE爲止
+                    for(int u = 1 ; u < servedUE_of_AP.size() ; u++)
+                    {
+                        //need代表此輪分配需要佔用多少資源
+                        double need = 0;
+
+                        //extra記錄要多給哪個UE多少資源
+                        //extra.first : UE index
+                        //extra.second : 分配給extra.first的額外資源
+                        std::map<int,double> extra;
+
+                        //這一輪要將額外資源分配給前u個UE
+                        for(int k = 0 ; k < u ; k++)
+                        {
+
+                            //last_ap記錄servedUE_of_AP[k]放的UE，其上一輪AP是誰
+                            int last_ap = myUElist[servedUE_of_AP[k].first].Get_Prev_Associated_AP();
+                            
+                            //初始state不必考慮handover
+                            if(state == 0)
+                
+                                //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
+                                extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / RF_DataRate_Matrix[i][servedUE_of_AP[k].first];
+
+                        
+                            
+                            
+                            //非初始state則需要多考慮handover
+                            else
+                        
+                                //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
+                                extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / Handover_Efficiency_Matrix[last_ap][i] * RF_DataRate_Matrix[i][servedUE_of_AP[k].first];
+
+                            
+
+                            //記錄總需求量
+                            need += extra[servedUE_of_AP[k].first];
+
+
+                        }
+
+
+                        //如果剛剛算出來的需求量 > 剩餘的資源量
+                        //就代表沒辦法照剛剛的結果配置，基本上剩很少很少了
+                        //則改成給UE們平分
+                        if(need > TDMA_Matrix[i][0])
+                        {
+                            //大家平分TDMA_Matrix[i][0]
+                            for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
+                            {
+                                TDMA_Matrix[i][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i][0] / servedUE_of_AP.size();
+                            }
+
+                            //大家分完就沒有了
+                            TDMA_Matrix[i][0] = 0;
+
+                        }
+
+                        //否則代表剩餘資源量 - need還剩，就還會有下一輪
+                        else
+                        {
+                            //每個UE照剛剛計算的方式分配extra資源
+                            for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
+                            {
+                                TDMA_Matrix[i][servedUE_of_AP[j].first + 1] += extra[servedUE_of_AP[j].first];
+                            }
+
+                            //因爲ρ(i,0) > need
+                            //ρ(i,0) - need > 0
+                            //代表還會有下一輪要分配
+                            TDMA_Matrix[i][0] -= need;
+                        }
+
+                        //若這輪分完
+                        //就break不必再做下一輪
+                        if(TDMA_Matrix[i][0] ==0)
+                            break;
 
                     }
 
-
-                    //如果剛剛算出來的需求量 > 剩餘的資源量
-                    //就代表沒辦法照剛剛的結果配置，基本上剩很少很少了
-                    //則改成給UE們平分
-                    if(need > TDMA_Matrix[i][0])
+                    //應該不太會有做完上述分配後，還留下資源的可能
+                    //不過還是寫個防呆
+                    //若真的不巧還有剩則平分給此AP連到的所有UE
+                    if(TDMA_Matrix[i][0] > 0)
                     {
                         //大家平分TDMA_Matrix[i][0]
                         for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
@@ -918,45 +977,9 @@ void save_lower_throughputUE(
 
                         //大家分完就沒有了
                         TDMA_Matrix[i][0] = 0;
-
                     }
-
-                    //否則代表剩餘資源量 - need還剩，就還會有下一輪
-                    else
-                    {
-                        //每個UE照剛剛計算的方式分配extra資源
-                        for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
-                        {
-                            TDMA_Matrix[i][servedUE_of_AP[j].first + 1] += extra[servedUE_of_AP[j].first];
-                        }
-
-                        //因爲ρ(i,0) > need
-                        //ρ(i,0) - need > 0
-                        //代表還會有下一輪要分配
-                        TDMA_Matrix[i][0] -= need;
-                    }
-
-                    //若這輪分完
-                    //就break不必再做下一輪
-                    if(TDMA_Matrix[i][0] ==0)
-                        break;
-
                 }
 
-                //應該不太會有做完上述分配後，還留下資源的可能
-                //不過還是寫個防呆
-                //若真的不巧還有剩則平分給此AP連到的所有UE
-                if(TDMA_Matrix[i][0] > 0)
-                {
-                    //大家平分TDMA_Matrix[i][0]
-                    for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
-                    {
-                        TDMA_Matrix[i][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i][0] / servedUE_of_AP.size();
-                    }
-
-                    //大家分完就沒有了
-                    TDMA_Matrix[i][0] = 0;
-                }
 
             }
         }
@@ -1009,103 +1032,119 @@ void save_lower_throughputUE(
                 //將此AP服務的UE們依照stage1獲得的throughput升序排列
                 //目的是先拯救throughput最低的人
                 sort(servedUE_of_AP.begin(),servedUE_of_AP.end(),[](std::pair<int,double> a,std::pair<int,double> b){return a.second < b.second;});
-
-                //i控制現在最多分配到第幾個UE爲止
-                for(int u = 1 ; u < servedUE_of_AP.size() ; u++)
+                
+                
+                //如果此AP只服務1個UE，則全部給它
+                if(servedUE_of_AP.size() == 1)
                 {
-                    //need代表此輪分配需要佔用多少資源
-                    double need = 0;
-
-                    //extra記錄要多給哪個UE多少資源
-                    //extra.first : UE index
-                    //extra.second : 分配給extra.first的額外資源
-                    std::map<int,double> extra;
-
-                    //這一輪要將額外資源分配給前u個UE
-                    for(int k = 0 ; k < u ; k++)
-                    {
-
-                        //last_ap記錄servedUE_of_AP[k]放的UE，其上一輪AP是誰
-                        int last_ap = myUElist[servedUE_of_AP[k].first].Get_Prev_Associated_AP();
-                        
-                        //初始state不必考慮handover
-                        if(state == 0)
-            
-                            //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
-                            extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / VLC_DataRate_Matrix[i][servedUE_of_AP[k].first];
-
-                       
-                           
-                        
-                        //非初始state則需要多考慮handover
-                        else
                     
-                            //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
-                            extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / Handover_Efficiency_Matrix[last_ap][i + RF_AP_Num] 
-                            * VLC_DataRate_Matrix[i][servedUE_of_AP[k].first];
+                    //全給那個UE
+                    TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP.back().first + 1] += TDMA_Matrix[i + RF_AP_Num][0];
 
-                          
 
-                        //記錄總需求量
-                        need += extra[servedUE_of_AP[k].first];
+                    //分完就沒有了
+                    TDMA_Matrix[i + RF_AP_Num][0] = 0;
+                }
+                else
+                {
+                    //i控制現在最多分配到第幾個UE爲止
+                    for(int u = 1 ; u < servedUE_of_AP.size() ; u++)
+                    {
+                        //need代表此輪分配需要佔用多少資源
+                        double need = 0;
 
+                        //extra記錄要多給哪個UE多少資源
+                        //extra.first : UE index
+                        //extra.second : 分配給extra.first的額外資源
+                        std::map<int,double> extra;
+
+                        //這一輪要將額外資源分配給前u個UE
+                        for(int k = 0 ; k < u ; k++)
+                        {
+
+                            //last_ap記錄servedUE_of_AP[k]放的UE，其上一輪AP是誰
+                            int last_ap = myUElist[servedUE_of_AP[k].first].Get_Prev_Associated_AP();
+                            
+                            //初始state不必考慮handover
+                            if(state == 0)
+                
+                                //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
+                                extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / VLC_DataRate_Matrix[i][servedUE_of_AP[k].first];
+
+                        
+                            
+                            
+                            //非初始state則需要多考慮handover
+                            else
+                        
+                                //計算如果要將throughput_lowest拉到與throughput_secondlowest相等，需要額外給多少資源
+                                extra[servedUE_of_AP[k].first] = ( servedUE_of_AP[u].second - servedUE_of_AP[k].second ) / Handover_Efficiency_Matrix[last_ap][i + RF_AP_Num] 
+                                * VLC_DataRate_Matrix[i][servedUE_of_AP[k].first];
+
+                            
+
+                            //記錄總需求量
+                            need += extra[servedUE_of_AP[k].first];
+
+
+                        }
+
+
+                        //如果剛剛算出來的需求量 > 剩餘的資源量
+                        //就代表沒辦法照剛剛的結果配置，基本上剩很少很少了
+                        //則改成給UE們平分
+                        if(need > TDMA_Matrix[i + RF_AP_Num][0])
+                        {
+                            //大家平分TDMA_Matrix[i][0]
+                            for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
+                            {
+                                TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i + RF_AP_Num][0] / servedUE_of_AP.size();
+                            }
+
+                            //大家分完就沒有了
+                            TDMA_Matrix[i + RF_AP_Num][0] = 0;
+
+                        }
+
+                        //否則代表剩餘資源量 - need還剩，就還會有下一輪
+                        else
+                        {
+                            //每個UE照剛剛計算的方式分配extra資源
+                            for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
+                            {
+                                TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += extra[servedUE_of_AP[j].first];
+                            }
+
+                            //因爲ρ(i,0) > need
+                            //ρ(i,0) - need > 0
+                            //代表還會有下一輪要分配
+                            TDMA_Matrix[i + RF_AP_Num][0] -= need;
+                        }
+
+                        //若這輪分完
+                        //就break不必再做下一輪
+                        if(TDMA_Matrix[i + RF_AP_Num][0] ==0)
+                            break;
 
                     }
+                    
 
-
-                    //如果剛剛算出來的需求量 > 剩餘的資源量
-                    //就代表沒辦法照剛剛的結果配置，基本上剩很少很少了
-                    //則改成給UE們平分
-                    if(need > TDMA_Matrix[i + RF_AP_Num][0])
+                    //應該不太會有做完上述分配後，還留下資源的可能
+                    //不過還是寫個防呆
+                    //若真的不巧還有剩則平分給此AP連到的所有UE
+                    if(TDMA_Matrix[i + RF_AP_Num][0] > 0)
                     {
                         //大家平分TDMA_Matrix[i][0]
                         for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
                         {
-                            TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i + RF_AP_Num][0] / servedUE_of_AP.size();
+                            TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i][0] / servedUE_of_AP.size();
                         }
 
                         //大家分完就沒有了
                         TDMA_Matrix[i + RF_AP_Num][0] = 0;
-
                     }
-
-                    //否則代表剩餘資源量 - need還剩，就還會有下一輪
-                    else
-                    {
-                        //每個UE照剛剛計算的方式分配extra資源
-                        for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
-                        {
-                            TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += extra[servedUE_of_AP[j].first];
-                        }
-
-                        //因爲ρ(i,0) > need
-                        //ρ(i,0) - need > 0
-                        //代表還會有下一輪要分配
-                        TDMA_Matrix[i + RF_AP_Num][0] -= need;
-                    }
-
-                    //若這輪分完
-                    //就break不必再做下一輪
-                    if(TDMA_Matrix[i + RF_AP_Num][0] ==0)
-                        break;
-
                 }
-                
-
-                //應該不太會有做完上述分配後，還留下資源的可能
-                //不過還是寫個防呆
-                //若真的不巧還有剩則平分給此AP連到的所有UE
-                if(TDMA_Matrix[i + RF_AP_Num][0] > 0)
-                {
-                    //大家平分TDMA_Matrix[i][0]
-                    for(int j = 0 ; j < servedUE_of_AP.size() ; j++)
-                    {
-                        TDMA_Matrix[i + RF_AP_Num][servedUE_of_AP[j].first + 1] += TDMA_Matrix[i][0] / servedUE_of_AP.size();
-                    }
-
-                    //大家分完就沒有了
-                    TDMA_Matrix[i + RF_AP_Num][0] = 0;
-                }
+              
 
             }
         }
