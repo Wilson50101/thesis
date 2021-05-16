@@ -31,7 +31,11 @@ class My_UE_Node {
 
         void Set_Now_Associated_AP(int associated_AP_index);
         int Get_Now_Associated_AP(void);
-        
+
+        void Set_Time_Fraction(double timefrac);
+        double Get_Time_Fraction(void);
+
+
         int Get_Prev_Associated_AP(void);
 
         void Set_SINR(double in_SINR);
@@ -55,7 +59,7 @@ class My_UE_Node {
         //[RF_AP_Num , RF_AP_Num+VLC_AP_Num-1] means link to VLC AP
         int prev_associated_AP ;                      //records AP in last round  
         int now_associated_AP;                       //records AP in now round     
-        
+        double time_fraction;                        //records obtained time resource fraction from now_associated_AP ; range is [0,1]
         double SINR;                                 //records SINR in now round
         std::vector<double> achievable_datarate;     //records data rate foreach round
         std::vector<double> satisfication_level;     //records satification foreach round

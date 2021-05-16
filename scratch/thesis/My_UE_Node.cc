@@ -16,6 +16,7 @@ My_UE_Node::My_UE_Node(int id,Vector in_pos,double required_rate){
     avg_datarate = 0 ;
     prev_associated_AP = -1;
     now_associated_AP = -1;
+    time_fraction = 0 ;
     SINR = 0;
 
 }
@@ -70,10 +71,23 @@ My_UE_Node::Get_Now_Associated_AP(void){
     return now_associated_AP;
 }
 
+
+void 
+My_UE_Node::Set_Time_Fraction(double timefrac){
+    time_fraction = timefrac;
+}
+
+double 
+My_UE_Node::Get_Time_Fraction(void){
+    return time_fraction;
+}
+
+
 int 
 My_UE_Node::Get_Prev_Associated_AP(void){
     return prev_associated_AP;
 }
+
 
 void 
 My_UE_Node::Set_SINR(double in_SINR){
