@@ -18,5 +18,8 @@ void print_VLC_DataRate_Matrix(std::vector<std::vector<double>>  & VLC_DataRate_
 
 void print_Handover_Efficiency_Matrix(std::vector<std::vector<double>> & Handover_Efficiency_Matrix);
 
+void print_AP_Association_Matrix(std::vector<std::vector<int>>  & AP_Association_Matrix);
+
+void print_TDMA_Matrix(std::vector<std::vector<double>> & TDMA_Matrix);
 
 #endif

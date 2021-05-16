@@ -139,3 +139,45 @@ void print_Handover_Efficiency_Matrix(std::vector<std::vector<double>> & Handove
 
     std::cout<<std::endl;
 }
+
+//印 AP association matrix
+void print_AP_Association_Matrix(std::vector<std::vector<int>>  & AP_Association_Matrix){
+     
+    std::cout<<"AP_Association_Matrix as below : "<<std::endl;
+    
+    for(int i=0 ; i < RF_AP_Num + VLC_AP_Num ; i++){
+        
+        for(int j=0 ; j < UE_Num ; j++){
+            
+            std::cout<<AP_Association_Matrix[i][j]<<" ";
+        
+        }
+        
+        std::cout<<std::endl;
+    }
+
+    std::cout<<std::endl;
+}
+
+//印 TDMA matrix
+void print_TDMA_Matrix(std::vector<std::vector<double>> & TDMA_Matrix){
+     
+    std::cout<<"TDMA_Matrix as below : "<<std::endl;
+    
+    for(int i=0 ; i < RF_AP_Num + VLC_AP_Num ; i++){
+        
+        double sum = 0;
+        for(int j=0 ; j < UE_Num + 1 ; j++){
+            
+            if(j>0)
+                sum+=TDMA_Matrix[i][j];
+            
+            std::cout<<TDMA_Matrix[i][j]<<" ";
+        
+        }
+        
+        std::cout<<"total ="<<sum<<std::endl;
+    }
+
+    std::cout<<std::endl;
+}
