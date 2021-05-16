@@ -46,6 +46,6 @@ void Benchmark_RSS_state0(
   std::vector<std::vector<int>>    & AP_Association_Matrix ,                          
   std::vector<My_UE_Node> & myUElist);
 
-void Update_APSelection_Result(std::vector<My_UE_Node> & myUElist , std::vector<int> & beta_u , std::vector<int> & served_UE_Num , std::vector<std::vector<int>>  & AP_Association_Matrix );
-void Update_RA_Result( std::vector<My_UE_Node> & myUElist , std::vector<double> & AchievableRate);
+void Benchmark_Update_APSelection_Result(std::vector<My_UE_Node> & myUElist , std::vector<int> & beta_u , std::vector<int> & served_UE_Num , std::vector<std::vector<int>>  & AP_Association_Matrix );
+void Benchmark_Update_RA_Result( std::vector<My_UE_Node> & myUElist , std::vector<double> & AchievableRate);
 #endif

@@ -212,7 +212,7 @@ void Benchmark_RSS_state0(
   }
   
   /** AP selection 完成 保存結果 **/
-  Update_APSelection_Result( myUElist , beta_u , served_UE_Num , AP_Association_Matrix);
+  Benchmark_Update_APSelection_Result( myUElist , beta_u , served_UE_Num , AP_Association_Matrix);
  
     
 
@@ -255,7 +255,7 @@ void Benchmark_RSS_state0(
   }
   
 
-  Update_RA_Result(myUElist , AchievableRate) ;
+  Benchmark_Update_RA_Result(myUElist , AchievableRate) ;
 
 }
 
@@ -349,7 +349,7 @@ void Benchmark_LB_stateN(
   }
   
   /** AP selection 完成 保存結果 **/
-  Update_APSelection_Result( myUElist , beta_u , served_UE_Num , AP_Association_Matrix);
+  Benchmark_Update_APSelection_Result( myUElist , beta_u , served_UE_Num , AP_Association_Matrix);
  
     
 
@@ -413,7 +413,7 @@ void Benchmark_LB_stateN(
     }
   }
 
-  Update_RA_Result(myUElist , AchievableRate) ;
+  Benchmark_Update_RA_Result(myUElist , AchievableRate) ;
 }
 
 
@@ -426,7 +426,7 @@ void Benchmark_LB_stateN(
   
   2. 依照最新的APS結果，更新所有AP的服務UE數
 **/
-void Update_APSelection_Result( std::vector<My_UE_Node> & myUElist , std::vector<int> & beta_u , std::vector<int> & served_UE_Num , std::vector<std::vector<int>>  & AP_Association_Matrix )
+void Benchmark_Update_APSelection_Result( std::vector<My_UE_Node> & myUElist , std::vector<int> & beta_u , std::vector<int> & served_UE_Num , std::vector<std::vector<int>>  & AP_Association_Matrix )
 {
   /** 先將新的AP到My_UE_Node中 **/
   for(int ue_index = 0 ; ue_index < myUElist.size() ; ue_index ++)
@@ -458,7 +458,7 @@ void Update_APSelection_Result( std::vector<My_UE_Node> & myUElist , std::vector
 //1. 此輪achievable datarate
 //2. 歷史平均avg data rate
 //3. 此輪滿意度
-void Update_RA_Result( std::vector<My_UE_Node> & myUElist , std::vector<double> & AchievableRate)
+void Benchmark_Update_RA_Result( std::vector<My_UE_Node> & myUElist , std::vector<double> & AchievableRate)
 {
   
   //Resource allocation結束
