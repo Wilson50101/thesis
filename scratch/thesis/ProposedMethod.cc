@@ -180,7 +180,12 @@ void Proposed_LB_state0(
     ////                        ////
     ////////////////////////////////
     ////////////////////////////////
-
+    
+    #if DEBUG_MODE
+        std::cout<<"TDMA Matrix after stage 1"<<std::endl;
+        print_TDMA_Matrix(TDMA_Matrix);
+    #endif
+    
     //此階段要做的事：對於尚有資源未分配完的AP，將其資源分配給底下的UE，不要留下冗餘資源
     //有三種分配方法：
     
@@ -206,8 +211,11 @@ void Proposed_LB_state0(
     #if (RESIDUAL_RA_METHOD == 3)//3. save low datarate first
         save_lower_throughputUE(state , RF_DataRate_Matrix , VLC_DataRate_Matrix , Handover_Efficiency_Matrix, AP_Association_Matrix , TDMA_Matrix , myUElist);
     #endif
-
-
+    
+    #if DEBUG_MODE
+        std::cout<<"TDMA Matrix after stage 2"<<std::endl;
+        print_TDMA_Matrix(TDMA_Matrix);
+    #endif
     ////////////////////////////////
     ////////////////////////////////
     ////                        ////
@@ -376,8 +384,10 @@ void Proposed_LB_stateN(
 
         
     }
-
-
+    #if DEBUG_MODE
+        std::cout<<"TDMA Matrix after stage 1"<<std::endl;
+        print_TDMA_Matrix(TDMA_Matrix);
+    #endif
     ////////////////////////////////
     ////////////////////////////////
     ////                        ////
@@ -414,7 +424,10 @@ void Proposed_LB_stateN(
         save_lower_throughputUE(state , RF_DataRate_Matrix , VLC_DataRate_Matrix , Handover_Efficiency_Matrix, AP_Association_Matrix , TDMA_Matrix , myUElist);
     #endif
 
-    
+    #if DEBUG_MODE
+        std::cout<<"TDMA Matrix after stage 2"<<std::endl;
+        print_TDMA_Matrix(TDMA_Matrix);
+    #endif
 
     ////////////////////////////////
     ////////////////////////////////
@@ -427,7 +440,7 @@ void Proposed_LB_stateN(
     //residual Resource allocation結束
     //將最後RA結果存回myUElist
     //APS結果已在前面就更新了
-    for(int ue_index = 0 ; ue_index < myUElist.size() ; ue_index ++)
+    for(int ue_index = 0 ; ue_index < UE_Num ; ue_index ++)
     {
         //抓出此UE連到哪個AP
         int linked_ap = myUElist[ue_index].Get_Now_Associated_AP();
@@ -685,7 +698,8 @@ void share_by_propotion(
                 std::map<int, double>::iterator it;
                 for(it = UE_to_DataRate.begin() ; it != UE_to_DataRate.end() ; it++)
 		        {    
-                    TDMA_Matrix[i][it->first + 1] += it->second / Reciprocal_Sum_Of_DataRate ;
+
+                    TDMA_Matrix[i][it->first + 1] += it->second / Reciprocal_Sum_Of_DataRate * TDMA_Matrix[i][0];
                     
                     
                     //在myUElist[it->first]中更新分得時間比例
@@ -748,7 +762,7 @@ void share_by_propotion(
                 for(it = UE_to_DataRate.begin() ; it != UE_to_DataRate.end() ; it++)
 		        {    
                     //注意在TDMA_Matrix中，UEindex從1開始，故it->first要+1
-                    TDMA_Matrix[i + RF_AP_Num][it->first + 1] += it->second / Reciprocal_Sum_Of_DataRate ;
+                    TDMA_Matrix[i + RF_AP_Num][it->first + 1] += it->second / Reciprocal_Sum_Of_DataRate * TDMA_Matrix[i + RF_AP_Num][0];
                      
                     //在myUElist[it->first]中更新分得時間比例
                     //Note : 此時的值即是最終值
