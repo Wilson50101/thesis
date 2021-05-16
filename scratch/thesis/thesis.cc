@@ -48,6 +48,7 @@
 #include "Channel.h"
 #include "print.h"
 #include "DynamicLB.h"
+#include "ProposedMethod.h"
 
 using namespace ns3;
 // using namespace std;
@@ -71,6 +72,7 @@ std::vector<std::vector<double>> RF_DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std:
 std::vector<std::vector<double>> VLC_DataRate_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
 
 std::vector<double> recorded_avg_datarate_per_UE(UE_Num , 0);
+std::vector<double> recorded_satification_per_UE(UE_Num , 0);
 
 static const uint32_t totalTxBytes = 10000000;
 static uint32_t currentTxBytes = 0;
@@ -114,20 +116,46 @@ void Dynamic_Update_to_NextState(
 
   // std::cout<<Simulator::Now()<<" Result of State"<< state <<std::endl;
   
+  
+  
+  #if(PROPOSED_METHOD)
+
+  Proposed_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+  RF_SINR_Matrix , VLC_SINR_Matrix , 
+  RF_DataRate_Matrix , VLC_DataRate_Matrix,
+  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
+
+  #else
+  
   Benchmark_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
   RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
   RF_SINR_Matrix , VLC_SINR_Matrix , 
   RF_DataRate_Matrix , VLC_DataRate_Matrix,
   Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
+
+  #endif
   
-
-
   //再多用recorded_avg_datarate_per_UE記錄每個UE的歷史平均速率
   //此舉是爲了提供給Simulator::Run()之後的程式取得datarate
   //否則直接從myUElist去取用不知爲何都是0
-  for(int i=0;i<myUElist.size();i++)
-      
-    recorded_avg_datarate_per_UE[i] = myUElist[i].Get_Avg_DataRate();  
+  for(int i = 0; i < myUElist.size(); i++)
+  {
+    
+    recorded_avg_datarate_per_UE[i] = myUElist[i].Get_Avg_DataRate();
+
+    double avg_of_satislevel = 0;
+
+    for(int j = 0 ; j < myUElist[i].Get_satisfication_level_History().size() ; j++){
+      avg_of_satislevel += myUElist[i].Get_satisfication_level_History()[j];
+    }
+
+    avg_of_satislevel /= myUElist[i].Get_satisfication_level_History().size();
+
+    recorded_satification_per_UE[i] = avg_of_satislevel;
+    
+  }
+    
 
 
 
@@ -201,8 +229,7 @@ int main (int argc, char *argv[])
   // for(int i = 0 ; i < myUElist.size() ; i++){
   //       std::cout<<"id:"<<myUElist[i].GetID()<<" "<<myUElist[i].Get_Required_DataRate()<<" Mbps"<<std::endl;
   // }
-  //並根據Required datarate做大到小排序
-  //sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
+  
   
 
 
@@ -311,15 +338,27 @@ int main (int argc, char *argv[])
   //   print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
   // #endif
 
-  //system avg rate
+  ////////////////////////////////
+  ////                        ////
+  //// system avg throughput  ////
+  ////                        ////
+  ////////////////////////////////
   double sum=0;
-  for(int i=0;i<UE_Num;i++){
+  for(int i=0;i<UE_Num;i++)
+  {
     // std::cout<<"UE "<<i<<" Avg DR="<<recorded_avg_datarate_per_UE[i]<<std::endl;
     sum += recorded_avg_datarate_per_UE[i];
   }
     double sys_avg_rate = sum / UE_Num ;
+  
   //std::cout<<"System Avg  DR="<< sys_avg_rate <<std::endl;
-
+ 
+ 
+  ////////////////////////////////
+  ////                        ////
+  ////   system fairness      ////
+  ////                        ////
+  ////////////////////////////////
   double fairness;
   double squareofsum = 0;
   double sumofsquare = 0;
@@ -333,9 +372,27 @@ int main (int argc, char *argv[])
   fairness = squareofsum / (UE_Num * sumofsquare);
   //std::cout<<"System Fairness index ="<< fairness <<std::endl;
  
- 
+  ////////////////////////////////////////////////
+  ////                                        ////
+  ////   system avg satisfication level       ////
+  ////                                        ////
+  ////////////////////////////////////////////////
+  
+  //平均每個UE的滿意度
+  double sys_avg_satis_level = 0;
+  for(int i = 0 ; i<recorded_satification_per_UE.size(); i++)
+    sys_avg_satis_level += recorded_satification_per_UE[i];
+  sys_avg_satis_level /= UE_Num ;
+
+
+
+  ////////////////////////////////
+  ////                        ////
+  ////   output to .csv file  ////
+  ////                        ////
+  ////////////////////////////////
   std::fstream outFile;
-	outFile.open("/home/hsnl/repos/ns-3-allinone/ns-3.25/scratch/thesis/output.csv", std::ios::out|std::ios::app);
+	outFile.open("/home/hsnk/repos/ns-3-allinone/ns-3.25/scratch/thesis/output.csv", std::ios::out|std::ios::app);
   
   if(!outFile.is_open())
 
@@ -343,7 +400,7 @@ int main (int argc, char *argv[])
   
   else
   {
-    outFile << sys_avg_rate  << ',' << fairness << ',' << std::endl; 
+    outFile << sys_avg_rate  << ',' << fairness << ',' << sys_avg_satis_level <<std::endl; 
   }
 
   outFile.close();

@@ -3,6 +3,9 @@
 #define DEBUG_MODE 0            //控制是否要印出debug message
 #define PI 3.14
 #define BENCHMARK_HO_DESIGN 1   //控制handover overhead 要使用何種設定?
+#define PROPOSED_METHOD 1       //控制是要模擬ref還是模擬proposed method
+#define RESIDUAL_RA_METHOD 3    //RESIDUAL_RA_METHOD 控制剩餘資源的分配方法    1. maximize throughtput  2. share by propotion  3. save low datarate first 
+
 ////////////////////////////////////////////////////////
 /////////        ENVIRONMENT CONSTANTS          ////////
 ////////////////////////////////////////////////////////
