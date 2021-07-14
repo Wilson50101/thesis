@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <iomanip>
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
@@ -21,7 +22,7 @@ void print_RF_Channel_Gain_Matrix(std::vector<std::vector<double>>  & RF_Channel
     for(int i=0 ; i < RF_AP_Num ; i++){
        
         for(int j=0 ; j < UE_Num ; j++){
-            std::cout<<RF_Channel_Gain_Matrix[i][j]<<" ";
+            std::cout<<std::setiosflags(std::ios::fixed)<< std::setprecision(2) <<RF_Channel_Gain_Matrix[i][j]<<" ";
         }
         
         std::cout<<std::endl;
@@ -38,7 +39,7 @@ void print_VLC_Channel_Gain_Matrix(std::vector<std::vector<double>>  & VLC_Chann
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout<<VLC_Channel_Gain_Matrix[i][j]<<" ";
+            std::cout<<std::setiosflags(std::ios::fixed)<< std::setprecision(2) << VLC_Channel_Gain_Matrix[i][j]<<" ";
         
         }
 
@@ -55,7 +56,7 @@ void print_RF_SINR_Matrix(std::vector<std::vector<double>>  & RF_SINR_Matrix){
     for(int i=0 ; i < RF_AP_Num ; i++){
        
         for(int j=0 ; j < UE_Num ; j++){
-            std::cout<<RF_SINR_Matrix[i][j]<<" ";
+            std::cout<<std::setiosflags(std::ios::fixed)<< std::setprecision(2) << RF_SINR_Matrix[i][j]<<" ";
         }
         
         std::cout<<std::endl;
@@ -72,7 +73,7 @@ void print_VLC_SINR_Matrix(std::vector<std::vector<double>>  & VLC_SINR_Matrix){
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout<<VLC_SINR_Matrix[i][j]<<" ";
+            std::cout<<std::setiosflags(std::ios::fixed)<< std::setprecision(2) << VLC_SINR_Matrix[i][j]<<" ";
         
         }
         
@@ -92,7 +93,7 @@ void print_RF_DataRate_Matrix(std::vector<std::vector<double>>  & RF_DataRate_Ma
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout << RF_DataRate_Matrix[i][j] << " ";
+            std::cout << std::setiosflags(std::ios::fixed)<< std::setprecision(2) << RF_DataRate_Matrix[i][j] << " ";
             
         }
         
@@ -111,8 +112,15 @@ void print_VLC_DataRate_Matrix(std::vector<std::vector<double>>  & VLC_DataRate_
         
         for(int j=0 ; j < UE_Num ; j++){
             
-            std::cout << VLC_DataRate_Matrix[i][j] << " ";
-           
+            
+            //速度 < 1 的太小了 show出來沒意義
+            //視爲 0
+            if(VLC_DataRate_Matrix[i][j] > 1)
+
+                std::cout <<  std::left << std::setw(6) << std::setiosflags(std::ios::fixed)<< std::setprecision(2) << VLC_DataRate_Matrix[i][j] <<" ";
+            else
+
+                std::cout <<  std::left << std::setw(6) <<  std::setiosflags(std::ios::fixed)<< std::setprecision(2) << 0 << " ";
         }
         
         std::cout<<std::endl;
@@ -130,7 +138,7 @@ void print_Handover_Efficiency_Matrix(std::vector<std::vector<double>> & Handove
         
         for(int j=0 ; j < RF_AP_Num + VLC_AP_Num ; j++){
             
-            std::cout<<Handover_Efficiency_Matrix[i][j]<<" ";
+            std::cout<<std::setiosflags(std::ios::fixed)<< std::setprecision(2) << Handover_Efficiency_Matrix[i][j]<<" ";
         
         }
         
@@ -166,17 +174,24 @@ void print_TDMA_Matrix(std::vector<std::vector<double>> & TDMA_Matrix){
     
     for(int i=0 ; i < RF_AP_Num + VLC_AP_Num ; i++){
         
+        if(i<RF_AP_Num)
+            std::cout << std::left << "RF AP " << std::setw(4) << i ;
+        else
+            std::cout << std::left << "VLC AP " << std::setw(3) << i - RF_AP_Num;
+        
         double sum = 0;
-        for(int j=0 ; j < UE_Num + 1 ; j++){
+        for(int j = 0 ; j < UE_Num + 1 ; j++){
             
             if(j>0)
                 sum+=TDMA_Matrix[i][j];
-            
-            std::cout<<TDMA_Matrix[i][j]<<" ";
+            if(j==0)
+                std::cout<<"Residual = ";
+            std::cout <<  std::left << std::setw(6) << std::setiosflags(std::ios::fixed)<< std::setprecision(3) << TDMA_Matrix[i][j] <<" ";
+         
         
         }
         
-        std::cout<<"total ="<<sum<<std::endl;
+        std::cout<<std::left << std::setw(6) << "total ="<<sum<<std::endl;
     }
 
     std::cout<<std::endl;

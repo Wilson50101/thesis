@@ -3,9 +3,9 @@
 #define DEBUG_MODE 0            //控制是否要印出debug message
 #define PI 3.14
 #define BENCHMARK_HO_DESIGN 1   //控制handover overhead 要使用何種設定?
-#define PROPOSED_METHOD 1       //控制是要模擬ref還是模擬proposed method
-#define RESIDUAL_RA_METHOD 3    //RESIDUAL_RA_METHOD 控制剩餘資源的分配方法    1. maximize throughtput  2. share by propotion  3. save low datarate first 
-
+#define PROPOSED_METHOD  1      //控制是要模擬ref還是模擬proposed method
+#define RESIDUAL_RA_METHOD 1    //RESIDUAL_RA_METHOD 控制剩餘資源的分配方法    1. MST  2. CF
+#define PROPOTION_BY_ACHE_DR 0
 ////////////////////////////////////////////////////////
 /////////        ENVIRONMENT CONSTANTS          ////////
 ////////////////////////////////////////////////////////
@@ -13,7 +13,7 @@
 // room size 40*40*3.5
 const double room_size = 40;
 
-// - RF AP number : 1                              
+// - RF AP number : 4                              
 const int RF_AP_Num = 4;   
 
 // - VLC AP number : 4*4=16                              
@@ -25,8 +25,8 @@ const int VLC_AP_per_row = 4;
 // - foreach row , RF AP number = sqrt(RF_AP_Num) //assume RF_AP_Num is a square num
 const int RF_AP_per_row = 2;
 
-// - UE number : 10-70 step 10                   
-const int UE_Num = 60;
+// - UE number : 20-100 step 10                   
+const int UE_Num = 80;
 
 // -Time period in each round : 500 ms = 0.5s
 const double Tp = 500; 
@@ -72,7 +72,16 @@ const double kappa = 0.53 ;
 ////////////////////////////////////////////////////////
 /////////          Each UE                      ////////
 ////////////////////////////////////////////////////////
-                                                              
+
+//   - 高demand的user之比例
+const double percentage_of_high_demand_user = 0.0;
+
+//   - 高demand
+const double high_demand = 40; //Mbps
+
+//   - 低demand
+const double low_demand = 10;  //Mbps
+
 //   - height 0.85m                            
 const double UE_height = 0.85;                  
 
@@ -81,12 +90,13 @@ const double UE_height = 0.85;
 //   - paper上的範圍約 29 ~ 33Mb/s
 //   - 目前先取 30Mb/s 
 //   - 單位換算參考 : https://kknews.cc/zh-tw/tech/953jzy5.html
-const double avg_require_data_rate = 30 ; // Mbps
+// const double avg_require_data_rate = 30 ; // Mbps
 
 //   - threshold = 6~12 Mb/s 
 //   - 目前先定 9 Mb/s
-const double threshold = 6 ;//Mbps
+const double threshold = 9 ;//Mbps
 
+const double satis_threshold = 0.4 ;//滿意度的閥值拿來算outage prob的
 
 ////////////////////////////////////////////////////////
 /////////         VLC CHANNEL CONSTANTS         ////////

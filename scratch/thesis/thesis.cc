@@ -34,6 +34,7 @@
 #include <fstream>
 #include <string>
 #include <algorithm>
+#include <iomanip>
 
 #include "ns3/core-module.h"
 #include "ns3/applications-module.h"
@@ -57,7 +58,7 @@ NS_LOG_COMPONENT_DEFINE ("TcpLargeTransfer");
 std::vector<double> Received(1, 0);
 std::vector<double> theTime(1, 0);
 
-std::vector<std::vector<int>> AP_Association_Matrix( RF_AP_Num + VLC_AP_Num , std::vector<int> (UE_Num,0));                             //χ(i,u)
+std::vector<std::vector<int>> AP_Association_Matrix( RF_AP_Num + VLC_AP_Num , std::vector<int> (UE_Num + 1,0));                             //χ(i,u)
 std::vector<std::vector<double>> TDMA_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num +1 ,0));                               //ρ(i,u)
 
 std::vector<std::vector<double>> Handover_Efficiency_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (RF_AP_Num + VLC_AP_Num,0));    //η(i,j)
@@ -148,8 +149,11 @@ void Dynamic_Update_to_NextState(
 
     for(int j = 0 ; j < myUElist[i].Get_satisfication_level_History().size() ; j++){
       avg_of_satislevel += myUElist[i].Get_satisfication_level_History()[j];
+
+      //std::cout<<"UE "<<i<<" demand ="<<myUElist[i].Get_Required_DataRate()<<" satislevel:"<<myUElist[i].Get_satisfication_level_History()[j]<<std::endl;
     }
 
+    //std::cout<< myUElist[i].Get_satisfication_level_History().size()<<std::endl;
     avg_of_satislevel /= myUElist[i].Get_satisfication_level_History().size();
 
     recorded_satification_per_UE[i] = avg_of_satislevel;
@@ -343,16 +347,13 @@ int main (int argc, char *argv[])
   //// system avg throughput  ////
   ////                        ////
   ////////////////////////////////
-  double sum=0;
+  double sumTP=0;
   for(int i=0;i<UE_Num;i++)
   {
-    // std::cout<<"UE "<<i<<" Avg DR="<<recorded_avg_datarate_per_UE[i]<<std::endl;
-    sum += recorded_avg_datarate_per_UE[i];
+    sumTP += recorded_avg_datarate_per_UE[i];
   }
-    double sys_avg_rate = sum / UE_Num ;
+    double sys_avg_rate = sumTP / UE_Num ;
   
-  //std::cout<<"System Avg  DR="<< sys_avg_rate <<std::endl;
- 
  
   ////////////////////////////////
   ////                        ////
@@ -380,11 +381,20 @@ int main (int argc, char *argv[])
   
   //平均每個UE的滿意度
   double sys_avg_satis_level = 0;
+  double outage = 0;
   for(int i = 0 ; i<recorded_satification_per_UE.size(); i++)
+  {
     sys_avg_satis_level += recorded_satification_per_UE[i];
+    if(recorded_satification_per_UE[i] < satis_threshold ) 
+      outage++;
+  }
   sys_avg_satis_level /= UE_Num ;
 
-
+  sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
+  // for(int i=0;i<myUElist.size();i++)
+  // {
+  //   std::cout<<"UE id = "<<myUElist[i].GetID()<<" Demand ="<<myUElist[i].Get_Required_DataRate()<<" Avg DR = "<<recorded_avg_datarate_per_UE[myUElist[i].GetID()]<<" satislevel = "<<recorded_satification_per_UE[myUElist[i].GetID()]<<std::endl;
+  // }
 
   ////////////////////////////////
   ////                        ////
@@ -400,7 +410,13 @@ int main (int argc, char *argv[])
   
   else
   {
-    outFile << sys_avg_rate  << ',' << fairness << ',' << sys_avg_satis_level <<std::endl; 
+    //std::cout<<state<<std::endl;
+    outFile << sumTP << ',' << sys_avg_rate  << ',' << fairness << ',' << sys_avg_satis_level << ','<< outage / UE_Num << ','; 
+    
+    for(int i=0; i < RF_AP_Num + VLC_AP_Num ; i++)
+      outFile << std::setiosflags(std::ios::fixed)<< std::setprecision(4) << ((double) AP_Association_Matrix[i][UE_Num] ) / ( state * UE_Num )<<',';
+    
+    outFile << std::endl;
   }
 
   outFile.close();

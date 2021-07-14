@@ -31,7 +31,7 @@ void Benchmark_DynamicLB(
 {  
 
    
-        
+    
 
     //先做PreCalculation算出目前的各種SINR DataMatrix
     PreCalculation(RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes,
@@ -51,7 +51,22 @@ void Benchmark_DynamicLB(
       //即paper的Algo2
       Benchmark_LB_stateN(RF_DataRate_Matrix , VLC_DataRate_Matrix , Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
 
-    state ++;
+   
+
+
+    //實驗用 : 用來記錄AP平均服務的UE數
+    for(int i=0 ; i < RF_AP_Num + VLC_AP_Num ; i++){
+      
+      int served = 0;
+      for(int j = 0 ; j < UE_Num  ; j++){
+          served += AP_Association_Matrix[i][j];
+      }
+      //std::cout<<"AP "<<i<<" served "<<served<<" UE in state"<<state<<std::endl;
+      AP_Association_Matrix[i][UE_Num] += served ; 
+    }
+    //print_AP_Association_Matrix(AP_Association_Matrix);
+    
+    
 
     //印每個UE的歷史datarate
     // for(int i = 0 ; i < myUElist.size() ; i++){
@@ -63,6 +78,7 @@ void Benchmark_DynamicLB(
     // }
 
     // std::cout<<std::endl;
+    state ++;
 
 }
 
