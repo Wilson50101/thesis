@@ -37,7 +37,7 @@ void Proposed_LB_stateN(
   std::vector<std::vector<double>> & TDMA_Matrix,                           
   std::vector<My_UE_Node> & myUElist);
 
-void maximize_throughput(
+void  MST(
   int & state, 
   std::vector<std::vector<double>> & RF_DataRate_Matrix ,
   std::vector<std::vector<double>> & VLC_DataRate_Matrix,
@@ -46,16 +46,7 @@ void maximize_throughput(
   std::vector<std::vector<double>> & TDMA_Matrix,                            
   std::vector<My_UE_Node> & myUElist);
 
-void share_by_propotion(
-  int & state,
-  std::vector<std::vector<double>> & RF_DataRate_Matrix ,
-  std::vector<std::vector<double>> & VLC_DataRate_Matrix,
-  std::vector<std::vector<double>> & Handover_Efficiency_Matrix,
-  std::vector<std::vector<int>>    & AP_Association_Matrix ,  
-  std::vector<std::vector<double>> & TDMA_Matrix,                            
-  std::vector<My_UE_Node> & myUElist);
-
-void save_lower_throughputUE( 
+void DP(
   int & state,
   std::vector<std::vector<double>> & RF_DataRate_Matrix ,
   std::vector<std::vector<double>> & VLC_DataRate_Matrix,

@@ -1,5 +1,7 @@
-// Q : 這份code在幹嘛？
-// A : 算channel gain , SINR , datarate , handover efficiency 等要用到的 matrix
+////////////////////////////////////////////////////////////////////////////////////////////
+//// Q : 這份code在幹嘛？                                                                  ///
+//// A : 算channel gain , SINR , datarate , handover efficiency 等演算法會要用到的matrix    ///
+////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <iostream>
 #include <fstream>
@@ -41,7 +43,7 @@ void Calculate_VLC_Channel_Gain_Matrix(NodeContainer  & VLC_AP_Nodes , NodeConta
     }
 }
 
-//計算某個 pair(RF_AP,UE)的Channel gain
+//計算某個 <RF_AP,UE> pair 的Channel gain
 /*
     RF Channel gain 公式 ： 
     Gμ,α(f) = sqrt(10^(−L(d)/10)) * hr,
@@ -56,10 +58,13 @@ void Calculate_VLC_Channel_Gain_Matrix(NodeContainer  & VLC_AP_Nodes , NodeConta
  */
 double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP,Ptr<Node> UE){
     
+
+    //取得兩者之間距離
     double d = GetDistance_AP_UE(RF_AP,UE);
     double d0 = 1 ; 
     double v = 1.6 ;
 
+    //生成X 
     //X is zero mean Gaussian distributed random variable with a standard deviation of 1.8 dB
     std::normal_distribution<double> Gaussian (0.0,1.8);    //normal distribution 即 Gaussian distribution       
     std::default_random_engine distribution(std::chrono::system_clock::now().time_since_epoch().count());
@@ -76,8 +81,7 @@ double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP,Ptr<Node> UE){
     double rf_channel_gain = sqrt(pow(10,((-1) * L_d / 10))) ;
 
     //hr is Rayleigh distribution 
-    //Rayleigh distribution要額外裝C++ boost libraray才能用
-    //或是從uniform distribution間接產生
+    //Rayleigh distribution要額外裝C++ boost libraray才能用或是從uniform distribution間接產生
     //To generate samples from a Rayleigh distribution with scale b, generate a uniform sample u from (0, 1) and return sqrt(-2 * b^2 * log(u)).
     boost::math::rayleigh_distribution<double> rayleigh(sqrt(2.46));
     std::uniform_real_distribution<double> random_p(0.0, 1.0);
@@ -94,7 +98,8 @@ double Estimate_one_RF_Channel_Gain(Ptr<Node> RF_AP,Ptr<Node> UE){
 
 //計算某個 pair(VLC_AP,UE)的Channel gain
 double Estimate_one_VLC_Channel_Gain(Ptr<Node> VLC_AP , Ptr<Node> UE){
-    
+
+    //入射角
     double incidence_angle = Get_Incidence_Angle_AP_UE(VLC_AP,UE);
     
     
@@ -107,7 +112,7 @@ double Estimate_one_VLC_Channel_Gain(Ptr<Node> VLC_AP , Ptr<Node> UE){
     if( RadtoDeg(incidence_angle) >= VLC_field_of_view / 2)
         return 0;
 
-    //否則Channel gain不爲0,再來算
+    //否則Channel gain不爲0,再來做接下來的計算
 
     //lambertian raidation coefficient m = -ln2 / ln(cos(Φ1/2))
     const double lambertian_coefficient = (-1) / (log(cos(DegtoRad(VLC_PHI_half))));    //cos只吃弧度,所以要轉
@@ -129,6 +134,7 @@ double Estimate_one_VLC_Channel_Gain(Ptr<Node> VLC_AP , Ptr<Node> UE){
         故這裡直接用入射角值assign即可
 
     */
+    //輻射角
     const double irradiance_angle = incidence_angle;
 
     //取得AP的位置
@@ -139,18 +145,18 @@ double Estimate_one_VLC_Channel_Gain(Ptr<Node> VLC_AP , Ptr<Node> UE){
     Ptr<MobilityModel> UE_MobilityModel = UE->GetObject<MobilityModel> ();
     Vector UE_Pos = UE_MobilityModel->GetPosition ();
 
+    //AP與UE的高度差
     const double height_diff = VLC_AP_Pos.z - UE_Pos.z;
 
+    //AP與UE的平面距離差
     const double distance = GetDistance_AP_UE(VLC_AP,UE);
 
+
+    //計算channel gain
     double channel_gain = ( lambertian_coefficient + 1) / ( 2 * PI * pow(distance,2) ) * VLC_receiver_area ; // first term
-
     channel_gain  = channel_gain * VLC_concentrator_gain; // second term g(theta) 
-    
     channel_gain  = channel_gain * VLC_filter_gain ; // third term Ts(theta) 
-
     channel_gain  = channel_gain * pow( cos(irradiance_angle) , lambertian_coefficient ); // forth term [cos(phi)]^m
-
     channel_gain  = channel_gain * cos(incidence_angle); // last term
 
     return channel_gain;
@@ -285,6 +291,7 @@ void Calculate_RF_DataRate_Matrix(std::vector<std::vector<double>>  & RF_SINR_Ma
     
     for(int j=0 ; j < UE_Num ; j++){
       
+      //Shannon capacity
       RF_DataRate_Matrix[i][j] =  RF_AP_Bandwidth * log2(1 + RF_SINR_Matrix[i][j]) ;
     
     }
@@ -298,6 +305,7 @@ void Calculate_VLC_DataRate_Matrix(std::vector<std::vector<double>> & VLC_SINR_M
     
     for(int j=0 ; j < UE_Num ; j++){
       
+      //Shannon capacity
       VLC_DataRate_Matrix[i][j] = 0.5 * VLC_AP_Bandwidth * log2(1 + VLC_SINR_Matrix[i][j]) ;
     
     }
@@ -316,8 +324,16 @@ void Calculate_VLC_DataRate_Matrix(std::vector<std::vector<double>> & VLC_SINR_M
 */
 void Calculate_Handover_Efficiency_Matrix(std::vector<std::vector<double>> & Handover_Efficiency_Matrix){
   
-  // TODO：我這裡寫兩種算法到時候在跟老師討論要採用哪一種
-
+  /////////////////////////////////////////
+  ////                                 ////
+  ////  我這裏寫了兩種做法                ////
+  ////  法1我個人覺得比較合理             ////
+  ////  法2忠於paper原味                ////
+  ////  最後論文還是選擇用法2             ////
+  ////  所以法1是寫給使用者參考           ////
+  ////                                ////
+  ////////////////////////////////////////
+  
   // 做法1 ： 參考Mobility Management for Hybrid LiFi and WiFi Networks in the Presence of Light-path Blockage
   // 將HHO跟VHO分開計算
   // 這種做法較爲合理，但不是我的benmark的做法

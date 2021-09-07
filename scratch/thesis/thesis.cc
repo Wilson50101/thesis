@@ -45,7 +45,7 @@
 #include "global_environment.h"
 #include "install_mobility.h"
 #include "My_UE_Node.h"
-#include "MyAlgo.h"
+#include "My_UE_Node_List.h"
 #include "Channel.h"
 #include "print.h"
 #include "DynamicLB.h"
@@ -58,7 +58,7 @@ NS_LOG_COMPONENT_DEFINE ("TcpLargeTransfer");
 std::vector<double> Received(1, 0);
 std::vector<double> theTime(1, 0);
 
-std::vector<std::vector<int>> AP_Association_Matrix( RF_AP_Num + VLC_AP_Num , std::vector<int> (UE_Num + 1,0));                             //χ(i,u)
+std::vector<std::vector<int>> AP_Association_Matrix( RF_AP_Num + VLC_AP_Num , std::vector<int> (UE_Num + 1,0));                         //χ(i,u)
 std::vector<std::vector<double>> TDMA_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num +1 ,0));                               //ρ(i,u)
 
 std::vector<std::vector<double>> Handover_Efficiency_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (RF_AP_Num + VLC_AP_Num,0));    //η(i,j)
@@ -72,8 +72,8 @@ std::vector<std::vector<double>> VLC_SINR_Matrix(VLC_AP_Num,std::vector<double> 
 std::vector<std::vector<double>> RF_DataRate_Matrix( RF_AP_Num + VLC_AP_Num,std::vector<double> (UE_Num,0));
 std::vector<std::vector<double>> VLC_DataRate_Matrix(VLC_AP_Num,std::vector<double> (UE_Num,0));
 
-std::vector<double> recorded_avg_datarate_per_UE(UE_Num , 0);
-std::vector<double> recorded_satification_per_UE(UE_Num , 0);
+std::vector<double> recorded_avg_throughput_per_UE(UE_Num , 0);
+std::vector<double> recorded_avg_satisfaction_level_per_UE(UE_Num , 0);
 
 static const uint32_t totalTxBytes = 10000000;
 static uint32_t currentTxBytes = 0;
@@ -115,56 +115,56 @@ void Dynamic_Update_to_NextState(
   NodeContainer  & UE_Nodes,
   std::vector<My_UE_Node> & myUElist){
 
-  // std::cout<<Simulator::Now()<<" Result of State"<< state <<std::endl;
   
-  
-  
-  #if(PROPOSED_METHOD)
+  #if(PROPOSED_METHOD)  //我的做法
 
-  Proposed_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
-  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
-  RF_SINR_Matrix , VLC_SINR_Matrix , 
-  RF_DataRate_Matrix , VLC_DataRate_Matrix,
-  Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
+    Proposed_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+    RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+    RF_SINR_Matrix , VLC_SINR_Matrix , 
+    RF_DataRate_Matrix , VLC_DataRate_Matrix,
+    Handover_Efficiency_Matrix , AP_Association_Matrix , TDMA_Matrix , myUElist);
 
-  #else
+  #else //Benchmark的做法
   
-  Benchmark_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
-  RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
-  RF_SINR_Matrix , VLC_SINR_Matrix , 
-  RF_DataRate_Matrix , VLC_DataRate_Matrix,
-  Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
+    Benchmark_DynamicLB( state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
+    RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
+    RF_SINR_Matrix , VLC_SINR_Matrix , 
+    RF_DataRate_Matrix , VLC_DataRate_Matrix,
+    Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
 
   #endif
+
+  sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.GetID() < b.GetID();});
   
-  //再多用recorded_avg_datarate_per_UE記錄每個UE的歷史平均速率
+  //再多用recorded_avg_throughput_per_UE記錄每個UE的歷史平均速率
   //此舉是爲了提供給Simulator::Run()之後的程式取得datarate
   //否則直接從myUElist去取用不知爲何都是0
   for(int i = 0; i < myUElist.size(); i++)
   {
     
-    recorded_avg_datarate_per_UE[i] = myUElist[i].Get_Avg_DataRate();
+    
+
+    recorded_avg_throughput_per_UE[i] = myUElist[i].Get_Avg_Throughput();
+
 
     double avg_of_satislevel = 0;
 
-    for(int j = 0 ; j < myUElist[i].Get_satisfication_level_History().size() ; j++){
-      avg_of_satislevel += myUElist[i].Get_satisfication_level_History()[j];
+    for(int j = 0 ; j < myUElist[i].Get_satisfication_level_History().size() ; j++)
 
-      //std::cout<<"UE "<<i<<" demand ="<<myUElist[i].Get_Required_DataRate()<<" satislevel:"<<myUElist[i].Get_satisfication_level_History()[j]<<std::endl;
-    }
+        avg_of_satislevel += myUElist[i].Get_satisfication_level_History()[j];
 
-    //std::cout<< myUElist[i].Get_satisfication_level_History().size()<<std::endl;
     avg_of_satislevel /= myUElist[i].Get_satisfication_level_History().size();
 
-    recorded_satification_per_UE[i] = avg_of_satislevel;
+    recorded_avg_satisfaction_level_per_UE[i] = avg_of_satislevel;
     
   }
     
 
 
-
+  //用遞迴呼叫scheduler來模擬周期性的檢查
   if(!Simulator::IsFinished())
-
+    
+    //每隔Tp呼叫一次
     Simulator::Schedule(MilliSeconds(Tp),& Dynamic_Update_to_NextState, RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes, myUElist);
   
 }
@@ -228,21 +228,6 @@ int main (int argc, char *argv[])
 
   //生成自定義的UElist
   std::vector<My_UE_Node> myUElist = Initialize_My_UE_Node_list(UE_Nodes);
-  
-  // std::cout<<"Demand for each UE : "<<std::endl;
-  // for(int i = 0 ; i < myUElist.size() ; i++){
-  //       std::cout<<"id:"<<myUElist[i].GetID()<<" "<<myUElist[i].Get_Required_DataRate()<<" Mbps"<<std::endl;
-  // }
-  
-  
-
-
-  // Benchmark_DynamicLB(state , RF_AP_Nodes , VLC_AP_Nodes , UE_Nodes , 
-  // RF_Channel_Gain_Matrix , VLC_Channel_Gain_Matrix ,
-  // RF_SINR_Matrix , VLC_SINR_Matrix , 
-  // RF_DataRate_Matrix , VLC_DataRate_Matrix,
-  // Handover_Efficiency_Matrix , AP_Association_Matrix , myUElist);
-
 
   /** add ip/tcp stack to all nodes.**/
   // InternetStackHelper internet;
@@ -337,41 +322,53 @@ int main (int argc, char *argv[])
   Simulator::Stop (Minutes(2));
   Simulator::Run ();
 
-  // #if DEBUG_MODE
-  //   print_RF_DataRate_Matrix(RF_DataRate_Matrix);
-  //   print_VLC_DataRate_Matrix(VLC_DataRate_Matrix);
-  // #endif
+  
 
-  ////////////////////////////////
-  ////                        ////
-  //// system avg throughput  ////
-  ////                        ////
-  ////////////////////////////////
-  double sumTP=0;
-  for(int i=0;i<UE_Num;i++)
-  {
-    sumTP += recorded_avg_datarate_per_UE[i];
-  }
-    double sys_avg_rate = sumTP / UE_Num ;
+  ///////////////////////////////////////////////////
+  ////                                           ////
+  ////  Average system throughput per iteration  ////
+  ////                                           ////
+  ///////////////////////////////////////////////////
+  
+  //記錄平均下來，每個iteration的system throughput
+  double sum_of_throughput=0;
+
+  //可以有每個UE的avg_throughput加總獲得
+  for(int i = 0 ; i < UE_Num ; i++)
+
+    sum_of_throughput += recorded_avg_throughput_per_UE[i];
   
  
   ////////////////////////////////
   ////                        ////
-  ////   system fairness      ////
+  //// system fairness_index  ////
   ////                        ////
   ////////////////////////////////
-  double fairness;
-  double squareofsum = 0;
-  double sumofsquare = 0;
+  
+  //Note：我採用的是jain's fairness index但是有另外做修改，詳情去看論文
+
+  //fairness index
+  double fairness_index;
+  
+  //記錄avg throughput的和平方
+  double square_of_sum = 0;
+  
+  //記錄avg throughput的平方和
+  double sum_of_square = 0;
+
+  //計算square_of_sum 和sum_of_square
   for(int i=0 ; i<UE_Num;i++){
 
-      squareofsum += recorded_avg_datarate_per_UE[i];
-      sumofsquare += pow(recorded_avg_datarate_per_UE[i],2);
+    square_of_sum += recorded_avg_throughput_per_UE[i] / myUElist[i].Get_Required_DataRate();
+    
+    sum_of_square += pow(recorded_avg_throughput_per_UE[i] / myUElist[i].Get_Required_DataRate(),2);
   }
 
-  squareofsum = pow(squareofsum,2);
-  fairness = squareofsum / (UE_Num * sumofsquare);
-  //std::cout<<"System Fairness index ="<< fairness <<std::endl;
+  square_of_sum = pow(square_of_sum,2);
+
+  //最後算出來fairness index
+  fairness_index = square_of_sum / (UE_Num * sum_of_square);
+  
  
   ////////////////////////////////////////////////
   ////                                        ////
@@ -379,29 +376,25 @@ int main (int argc, char *argv[])
   ////                                        ////
   ////////////////////////////////////////////////
   
-  //平均每個UE的滿意度
+  //記錄平均每個UE的滿意度
   double sys_avg_satis_level = 0;
-  double outage = 0;
-  for(int i = 0 ; i<recorded_satification_per_UE.size(); i++)
-  {
-    sys_avg_satis_level += recorded_satification_per_UE[i];
-    if(recorded_satification_per_UE[i] < satis_threshold ) 
-      outage++;
-  }
-  sys_avg_satis_level /= UE_Num ;
 
-  sort(myUElist.begin(),myUElist.end(),[](My_UE_Node a,My_UE_Node b){return a.Get_Required_DataRate() > b.Get_Required_DataRate();});
-  // for(int i=0;i<myUElist.size();i++)
-  // {
-  //   std::cout<<"UE id = "<<myUElist[i].GetID()<<" Demand ="<<myUElist[i].Get_Required_DataRate()<<" Avg DR = "<<recorded_avg_datarate_per_UE[myUElist[i].GetID()]<<" satislevel = "<<recorded_satification_per_UE[myUElist[i].GetID()]<<std::endl;
-  // }
+  //將每個UE的歷史平均滿意度加總再除以UE數，可得
+  for(int i = 0 ; i<recorded_avg_satisfaction_level_per_UE.size(); i++)
+
+    sys_avg_satis_level += recorded_avg_satisfaction_level_per_UE[i];
+   
+  sys_avg_satis_level /= UE_Num ;
 
   ////////////////////////////////
   ////                        ////
+  ////   將模擬結果寫檔         ////
   ////   output to .csv file  ////
   ////                        ////
   ////////////////////////////////
+
   std::fstream outFile;
+  //寫檔路徑
 	outFile.open("/home/hsnk/repos/ns-3-allinone/ns-3.25/scratch/thesis/output.csv", std::ios::out|std::ios::app);
   
   if(!outFile.is_open())
@@ -410,9 +403,11 @@ int main (int argc, char *argv[])
   
   else
   {
-    //std::cout<<state<<std::endl;
-    outFile << sumTP << ',' << sys_avg_rate  << ',' << fairness << ',' << sys_avg_satis_level << ','<< outage / UE_Num << ','; 
+    //寫入以下模擬結果
+    outFile << sum_of_throughput << ',' << fairness_index << ',' << sys_avg_satis_level << ','; 
     
+
+    //這是我另外記錄的 每個AP的被佔用率 可以想做是loading的感覺
     for(int i=0; i < RF_AP_Num + VLC_AP_Num ; i++)
       outFile << std::setiosflags(std::ios::fixed)<< std::setprecision(4) << ((double) AP_Association_Matrix[i][UE_Num] ) / ( state * UE_Num )<<',';
     

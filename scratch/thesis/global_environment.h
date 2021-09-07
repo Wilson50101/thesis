@@ -1,11 +1,17 @@
+////////////////////////////////////////////////////////////////////////////////////////////
+//// Q : 這份code在幹嘛？                                                                  ///
+//// A : 實驗參數設定                                                                      ///
+////////////////////////////////////////////////////////////////////////////////////////////
+
 #ifndef GLOBAL_ENVIROMENT_H
 #define GLOBAL_ENVIROMENT_H
 #define DEBUG_MODE 0            //控制是否要印出debug message
 #define PI 3.14
 #define BENCHMARK_HO_DESIGN 1   //控制handover overhead 要使用何種設定?
 #define PROPOSED_METHOD  1      //控制是要模擬ref還是模擬proposed method
-#define RESIDUAL_RA_METHOD 1    //RESIDUAL_RA_METHOD 控制剩餘資源的分配方法    1. MST  2. CF
+#define RESIDUAL_RA_METHOD 0    //RESIDUAL_RA_METHOD 控制剩餘資源的分配方法    1. MST  2. DP
 #define PROPOTION_BY_ACHE_DR 0
+#define PRESSURE 0              //壓力測試 PRESSURE==1 會讓UE集中在房間左下角
 ////////////////////////////////////////////////////////
 /////////        ENVIRONMENT CONSTANTS          ////////
 ////////////////////////////////////////////////////////
@@ -26,12 +32,12 @@ const int VLC_AP_per_row = 4;
 const int RF_AP_per_row = 2;
 
 // - UE number : 20-100 step 10                   
-const int UE_Num = 80;
+const int UE_Num = 30;
 
 // -Time period in each round : 500 ms = 0.5s
 const double Tp = 500; 
 
-// -mean of handover overhead : 25ms ~ 175ms
+// -mean of handover overhead : ref 11有討論25ms ~ 175ms的情況，而我選25ms當作最後的參數
 const double meanHO = 25; 
 
 ////////////////////////////////////////////////////////
@@ -74,7 +80,7 @@ const double kappa = 0.53 ;
 ////////////////////////////////////////////////////////
 
 //   - 高demand的user之比例
-const double percentage_of_high_demand_user = 0.0;
+const double ratioHDU = 0.5;
 
 //   - 高demand
 const double high_demand = 40; //Mbps
@@ -85,24 +91,14 @@ const double low_demand = 10;  //Mbps
 //   - height 0.85m                            
 const double UE_height = 0.85;                  
 
-//   - Avg required data rate
-//   - 1MB/s = 8Mb/s = 8Mbps     
-//   - paper上的範圍約 29 ~ 33Mb/s
-//   - 目前先取 30Mb/s 
-//   - 單位換算參考 : https://kknews.cc/zh-tw/tech/953jzy5.html
-// const double avg_require_data_rate = 30 ; // Mbps
-
-//   - threshold = 6~12 Mb/s 
-//   - 目前先定 9 Mb/s
+//   - threshold = 9 Mb/s (follow benchmark 建議)
 const double threshold = 9 ;//Mbps
-
-const double satis_threshold = 0.4 ;//滿意度的閥值拿來算outage prob的
 
 ////////////////////////////////////////////////////////
 /////////         VLC CHANNEL CONSTANTS         ////////
 ////////////////////////////////////////////////////////
 
-// FOV range 70-130 step 10
+// FOV 
 const double VLC_field_of_view = 180;
 
 // semi-angle at half-illumination (phi_1/2) 60
@@ -119,9 +115,5 @@ const double VLC_receiver_area = 0.0001;
 
 // reflection efficiency (rho)                0.75
 const double VLC_reflect_efficiency = 0.75;
-
-
-
-
 
 #endif

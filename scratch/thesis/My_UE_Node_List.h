@@ -1,5 +1,5 @@
-#ifndef MY_ALGO_H
-#define MY_ALGO_H
+#ifndef MY_UE_NODE_LIST_H
+#define MY_UE_NODE_LIST_H
 
 #include <iostream>
 #include <fstream>

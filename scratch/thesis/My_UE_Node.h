@@ -26,8 +26,8 @@ class My_UE_Node {
         void Set_Required_DataRate(double data_rate_in_Mbps);
         double Get_Required_DataRate(void);
 
-        void Set_Avg_DataRate(double data_rate_in_Mbps);
-        double Get_Avg_DataRate(void);
+        void Set_Avg_Throughput(double data_rate_in_Mbps);
+        double Get_Avg_Throughput(void);
 
         void Set_Now_Associated_AP(int associated_AP_index);
         int Get_Now_Associated_AP(void);
@@ -41,8 +41,8 @@ class My_UE_Node {
         void Set_SINR(double in_SINR);
         double Get_SINR(void);
 
-        void Add_Curr_Achievable_DataRate(double data_rate_in_Mbps);
-        std::vector<double> Get_Achievable_DataRate_History(void);
+        void Add_Curr_iteration_Throughput(double data_rate_in_Mbps);
+        std::vector<double> Get_Throughput_History(void);
 
         void Add_Curr_satisfication_level(double satis_level);
         std::vector<double> Get_satisfication_level_History(void);
@@ -51,18 +51,18 @@ class My_UE_Node {
 
     private :
     
-        int Node_ID;                                 //user id
-        Vector pos;                                  //user position
-        double required_datarate;                    //records required datarate (demand)
-        double avg_datarate;
-        //[0 , RF_AP_Num-1] means link to RF AP
-        //[RF_AP_Num , RF_AP_Num+VLC_AP_Num-1] means link to VLC AP
-        int prev_associated_AP ;                      //records AP in last round  
-        int now_associated_AP;                       //records AP in now round     
-        double time_fraction;                        //records obtained time resource fraction from now_associated_AP ; range is [0,1]
-        double SINR;                                 //records SINR in now round
-        std::vector<double> achievable_datarate;     //records data rate foreach round
-        std::vector<double> satisfication_level;     //records satification foreach round
+        int Node_ID;                                 //UE id
+        Vector pos;                                  //UE位置 用向量記錄
+        double required_datarate;                    //記錄demand大小
+        double avg_throughput;                       //記錄平均吞吐量
+        //[0 , RF_AP_Num-1] 代表RF AP的index
+        //[RF_AP_Num , RF_AP_Num+VLC_AP_Num-1] 代表VLC AP的index
+        int prev_associated_AP ;                     //上一輪連到的AP 
+        int now_associated_AP;                       //這一輪連到的AP   
+        double time_fraction;                        //獲得的時間資源(0~1)
+        double SINR;                                 //此輪的SINR
+        std::vector<double> throughput_per_iteration;//每一輪的throughput
+        std::vector<double> satisfication_level;     //每一輪的滿意度
 
 };
 #endif
